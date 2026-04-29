@@ -1,0 +1,48 @@
+# 预览发布 Workflow
+# 触发条件：PR 或 push 到 main（排除 tag 推送）
+# 使用 pkg-pr-new 发布预览版本，自动在 PR 中添加安装链接评论
+#
+# 无需额外 Secrets，pkg-pr-new 使用 GitHub App 自动鉴权
+# 需要先在 https://github.com/apps/pkg-pr-new 安装 GitHub App
+
+name: Publish Any Commit
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - '!**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Publish Preview
+        run: pnpm dlx pkg-pr-new publish . --pnpm githubAction

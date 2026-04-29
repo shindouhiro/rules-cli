@@ -1,0 +1,52 @@
+# 正式发布 Workflow
+# 触发条件：推送 v* 格式的 tag（如 v1.0.0）
+# 流程：构建 → 发布到 NPM → 创建 GitHub Release
+#
+# 前置配置：
+# 1. 在 npmjs.com 生成 Access Token（Automation 类型）
+# 2. 在 GitHub 仓库 Settings > Secrets and variables > Actions 中添加 NPM_TOKEN
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Release to NPM
+        run: pnpm publish --no-git-checks --access public
+        continue-on-error: true
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        run: npx changelogithub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
