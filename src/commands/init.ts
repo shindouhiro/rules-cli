@@ -3,14 +3,16 @@ import consola from 'consola'
 import pc from 'picocolors'
 import { AGENTS } from '~/core/agents'
 import { getGlobalConfigPath, saveConfig } from '~/core/config'
-import { ensureStoreDir, getGlobalStoreDir } from '~/core/store'
+import { resolveIsGlobal } from '~/core/scope'
+import { ensureStoreDir, getStoreDir } from '~/core/store'
 
 export interface InitOptions {
   global?: boolean
+  project?: boolean
 }
 
 export async function initCommand(options: InitOptions): Promise<void> {
-  const isGlobal = options.global ?? false
+  const isGlobal = resolveIsGlobal(options)
 
   consola.log('')
   consola.log(pc.bold('🔧 初始化 Rules CLI 配置'))
@@ -34,7 +36,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
   const defaultAgents = (selected as string[]) || []
 
   // 确保 store 目录存在
-  ensureStoreDir()
+  ensureStoreDir({ global: isGlobal })
 
   // 保存配置
   const configPath = isGlobal
@@ -50,7 +52,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
   )
 
   consola.success(`配置已保存: ${pc.dim(configPath)}`)
-  consola.success(`规则存储目录: ${pc.dim(getGlobalStoreDir())}`)
+  consola.success(`规则存储目录: ${pc.dim(getStoreDir({ global: isGlobal }))}`)
   consola.log('')
   consola.info(`下一步: 运行 ${pc.cyan('rules create <name>')} 创建你的第一条规则`)
 }

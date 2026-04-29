@@ -6,6 +6,7 @@ import pc from 'picocolors'
 import { applyCommand } from '~/commands/apply'
 import { createCommand } from '~/commands/create'
 import { initCommand } from '~/commands/init'
+import { installCommand } from '~/commands/install'
 import { listCommand } from '~/commands/list'
 import { removeCommand } from '~/commands/remove'
 import { searchCommand } from '~/commands/search'
@@ -23,11 +24,12 @@ function showBanner(): void {
 
 // === search ===
 cli
-  .command('search [keyword]', '搜索本地规则 (alias: s)')
+  .command('search [keyword]', '搜索规则 (alias: s)')
   .alias('s')
-  .action(async (keyword?: string) => {
+  .option('-r, --remote', '同时搜索远程规则源')
+  .action(async (keyword: string | undefined, options: { remote?: boolean }) => {
     showBanner()
-    await searchCommand(keyword)
+    await searchCommand(keyword, options)
   })
 
 // === apply ===
@@ -36,18 +38,21 @@ cli
   .alias('a')
   .option('-a, --agent <agents>', '目标助手，逗号分隔（如 cursor,claude-code）')
   .option('-g, --global', '应用到全局（用户级）目录')
+  .option('-p, --project', '应用到当前项目目录')
   .option('-f, --force', '强制覆盖已存在的规则')
-  .action(async (name: string | undefined, options: { agent?: string, global?: boolean, force?: boolean }) => {
+  .action(async (name: string | undefined, options: { agent?: string, global?: boolean, project?: boolean, force?: boolean }) => {
     showBanner()
     await applyCommand(name, options)
   })
 
 // === list ===
 cli
-  .command('list', '列出已应用的规则 (alias: ls)')
+  .command('list', '列出规则 (alias: ls)')
   .alias('ls')
-  .option('-g, --global', '列出全局已应用的规则')
-  .action(async (options: { global?: boolean }) => {
+  .option('-s, --store', '列出 store 中的规则')
+  .option('-p, --project', '只列出当前项目已应用的规则')
+  .option('-g, --global', '只列出全局已应用的规则')
+  .action(async (options: { store?: boolean, project?: boolean, global?: boolean }) => {
     showBanner()
     await listCommand(options)
   })
@@ -58,27 +63,46 @@ cli
   .alias('rm')
   .alias('delete')
   .option('-a, --agent <agents>', '目标助手，逗号分隔')
+  .option('-s, --store', '从规则 store 删除（默认删除已应用规则）')
+  .option('-i, --interactive', '交互模式：下拉选择要删除的项（默认展示所有）')
   .option('-g, --global', '从全局目录移除')
-  .action(async (name: string | undefined, options: { agent?: string, global?: boolean }) => {
+  .option('-p, --project', '从当前项目目录移除')
+  .action(async (name: string | undefined, options: { agent?: string, store?: boolean, interactive?: boolean, global?: boolean, project?: boolean }) => {
     showBanner()
     await removeCommand(name, options)
   })
 
 // === create ===
 cli
-  .command('create <name>', '创建新规则模板 (alias: new)')
-  .alias('new')
-  .action(async (name: string) => {
+  .command('create <name>', '创建新规则模板 (alias: c)')
+  .alias('c')
+  .option('-g, --global', '创建到全局 store')
+  .option('-p, --project', '创建到当前项目 store')
+  .action(async (name: string, options: { global?: boolean, project?: boolean }) => {
     showBanner()
-    await createCommand(name)
+    await createCommand(name, options)
+  })
+
+// === install ===
+cli
+  .command('install [name]', '从远程源下载规则 (alias: i)')
+  .alias('i')
+  .option('-s, --source <repo>', '指定 GitHub 仓库 (owner/repo)')
+  .option('-g, --global', '下载到全局 store')
+  .option('-p, --project', '下载到当前项目 store')
+  .option('-f, --force', '强制覆盖已存在的规则')
+  .action(async (name: string | undefined, options: { source?: string, global?: boolean, project?: boolean, force?: boolean }) => {
+    showBanner()
+    await installCommand(name, options)
   })
 
 // === init ===
 cli
-  .command('init', '初始化配置和存储目录 (alias: i)')
-  .alias('i')
+  .command('init', '初始化配置和存储目录 (alias: init)')
+  .alias('init')
   .option('-g, --global', '初始化全局配置')
-  .action(async (options: { global?: boolean }) => {
+  .option('-p, --project', '初始化当前项目配置')
+  .action(async (options: { global?: boolean, project?: boolean }) => {
     showBanner()
     await initCommand(options)
   })

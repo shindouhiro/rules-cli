@@ -1,4 +1,5 @@
 import type { AgentRulesDef } from '~/types'
+import { resolve } from 'node:path'
 import process from 'node:process'
 
 /**
@@ -68,7 +69,7 @@ export const AGENTS: AgentRulesDef[] = [
     name: 'Antigravity',
     rulesType: 'single-file',
     projectPath: '.agent/rules.md',
-    globalPath: '~/.gemini/antigravity/user_rules.md',
+    globalPath: '~/.gemini/GEMINI.md',
     injectMarkerStart: '<!-- rules-cli:start -->',
     injectMarkerEnd: '<!-- rules-cli:end -->',
   },
@@ -101,11 +102,13 @@ export const AGENTS: AgentRulesDef[] = [
   },
 ]
 
+const AGENTS_BY_ID = new Map(AGENTS.map(agent => [agent.id, agent]))
+
 /**
  * 按 ID 查找 agent
  */
 export function getAgentById(id: string): AgentRulesDef | undefined {
-  return AGENTS.find(a => a.id === id)
+  return AGENTS_BY_ID.get(id)
 }
 
 /**
@@ -126,4 +129,16 @@ export function expandHome(dir: string): string {
     return dir.replace('~', home)
   }
   return dir
+}
+
+/**
+ * 解析 agent 在当前作用域下的目标路径
+ */
+export function resolveAgentPath(
+  agent: AgentRulesDef,
+  options: { global: boolean, cwd: string },
+): string {
+  return options.global
+    ? expandHome(agent.globalPath)
+    : resolve(options.cwd, agent.projectPath)
 }

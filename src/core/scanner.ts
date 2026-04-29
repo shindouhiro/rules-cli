@@ -1,7 +1,8 @@
 import type { RuleInfo, RuleMeta } from '~/types'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getGlobalStoreDir } from '~/core/store'
+import process from 'node:process'
+import { getGlobalStoreDir, getProjectStoreDir } from '~/core/store'
 
 /**
  * 解析 rule.md 的 frontmatter
@@ -48,8 +49,7 @@ function readRuleFromDir(ruleDir: string, ruleName: string): RuleInfo | undefine
   return { name: ruleName, path: ruleMdPath, meta, content: body }
 }
 
-export function scanStoreRules(): RuleInfo[] {
-  const storeDir = getGlobalStoreDir()
+function scanSingleStore(storeDir: string): RuleInfo[] {
   if (!existsSync(storeDir))
     return []
 
@@ -64,8 +64,26 @@ export function scanStoreRules(): RuleInfo[] {
   return rules.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export function searchRules(keyword?: string): RuleInfo[] {
-  const all = scanStoreRules()
+export function scanStoreRules(options: { cwd?: string, global?: boolean } = {}): RuleInfo[] {
+  const cwd = options.cwd || process.cwd()
+  if (options.global === true)
+    return scanSingleStore(getGlobalStoreDir())
+  if (options.global === false)
+    return scanSingleStore(getProjectStoreDir(cwd))
+
+  const byName = new Map<string, RuleInfo>()
+  for (const rule of scanSingleStore(getProjectStoreDir(cwd))) {
+    byName.set(rule.name, rule)
+  }
+  for (const rule of scanSingleStore(getGlobalStoreDir())) {
+    if (!byName.has(rule.name))
+      byName.set(rule.name, rule)
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function searchRules(keyword?: string, options: { cwd?: string, global?: boolean } = {}): RuleInfo[] {
+  const all = scanStoreRules(options)
   if (!keyword)
     return all
   const lower = keyword.toLowerCase()
@@ -76,9 +94,21 @@ export function searchRules(keyword?: string): RuleInfo[] {
   })
 }
 
-export function getRuleByName(name: string): RuleInfo | undefined {
-  const ruleDir = join(getGlobalStoreDir(), name)
-  if (!existsSync(ruleDir))
-    return undefined
-  return readRuleFromDir(ruleDir, name)
+export function getRuleByName(name: string, options: { cwd?: string, global?: boolean } = {}): RuleInfo | undefined {
+  const cwd = options.cwd || process.cwd()
+  const dirs = options.global === true
+    ? [getGlobalStoreDir()]
+    : options.global === false
+      ? [getProjectStoreDir(cwd)]
+      : [getProjectStoreDir(cwd), getGlobalStoreDir()]
+
+  for (const storeDir of dirs) {
+    const ruleDir = join(storeDir, name)
+    if (!existsSync(ruleDir))
+      continue
+    const rule = readRuleFromDir(ruleDir, name)
+    if (rule)
+      return rule
+  }
+  return undefined
 }

@@ -49,13 +49,13 @@ export interface RuleInfo {
 }
 
 /**
- * 已应用的规则记录
+ * 远程规则源定义
  */
-export interface AppliedRule {
-  ruleName: string
-  agent: AgentRulesDef
-  targetPath: string
-  mode: 'symlink' | 'injected'
+export interface RuleSource {
+  /** GitHub 仓库 (owner/repo) */
+  repo: string
+  /** 仓库内规则所在子目录 */
+  subPath?: string
 }
 
 /**
@@ -64,8 +64,10 @@ export interface AppliedRule {
 export interface RulesConfig {
   /** 默认目标 agents */
   defaultAgents: string[]
-  /** store 路径（默认 ~/.rules/store） */
+  /** store 路径（默认项目 .rules/store，全局模式为 ~/.rules/store） */
   storePath?: string
   /** 安装范围 */
   scope: 'project' | 'global'
+  /** 远程规则源列表 */
+  sources?: RuleSource[]
 }

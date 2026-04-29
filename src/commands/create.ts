@@ -2,12 +2,21 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import consola from 'consola'
 import pc from 'picocolors'
+import { resolveIsGlobal } from '~/core/scope'
 import { ensureStoreDir, getStoreRuleDir } from '~/core/store'
 
-export async function createCommand(name: string): Promise<void> {
-  ensureStoreDir()
+export interface CreateOptions {
+  global?: boolean
+  project?: boolean
+}
 
-  const ruleDir = getStoreRuleDir(name)
+export async function createCommand(name: string, options: CreateOptions = {}): Promise<void> {
+  const isGlobal = resolveIsGlobal(options)
+  const scopeOptions = { global: isGlobal }
+
+  ensureStoreDir(scopeOptions)
+
+  const ruleDir = getStoreRuleDir(name, scopeOptions)
 
   if (existsSync(ruleDir)) {
     consola.error(`规则 "${name}" 已存在: ${ruleDir}`)

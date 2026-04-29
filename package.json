@@ -39,6 +39,7 @@
     "@clack/prompts": "catalog:prod",
     "cac": "catalog:prod",
     "consola": "catalog:prod",
+    "ofetch": "catalog:prod",
     "picocolors": "catalog:prod"
   },
   "devDependencies": {

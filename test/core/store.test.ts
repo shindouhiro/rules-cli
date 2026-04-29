@@ -21,12 +21,19 @@ describe('store', () => {
   })
 
   it('ensureStoreDir 创建不存在的目录', async () => {
+    const { ensureStoreDir, getProjectStoreDir } = await import('~/core/store')
+    const dir = ensureStoreDir({ cwd: TEST_DIR })
+    expect(existsSync(dir)).toBe(true)
+    expect(dir).toBe(getProjectStoreDir(TEST_DIR))
+  })
+
+  it('ensureStoreDir 支持创建全局目录', async () => {
     vi.doMock('node:os', () => ({
       homedir: () => TEST_DIR,
     }))
 
     const { ensureStoreDir, getGlobalStoreDir } = await import('~/core/store')
-    const dir = ensureStoreDir()
+    const dir = ensureStoreDir({ global: true })
     expect(existsSync(dir)).toBe(true)
     expect(dir).toBe(getGlobalStoreDir())
   })
@@ -40,22 +47,14 @@ describe('store', () => {
     // 创建一个文件（应被忽略）
     writeFileSync(join(storeDir, 'not-a-dir.txt'), 'ignored', 'utf-8')
 
-    vi.doMock('node:os', () => ({
-      homedir: () => TEST_DIR,
-    }))
-
     const { listStoreRuleNames } = await import('~/core/store')
-    const names = listStoreRuleNames()
+    const names = listStoreRuleNames({ cwd: TEST_DIR })
     expect(names).toEqual(['aa-rule', 'mm-rule', 'zz-rule'])
   })
 
   it('listStoreRuleNames store 不存在时返回空数组', async () => {
-    vi.doMock('node:os', () => ({
-      homedir: () => join(TEST_DIR, 'nonexistent'),
-    }))
-
     const { listStoreRuleNames } = await import('~/core/store')
-    const names = listStoreRuleNames()
+    const names = listStoreRuleNames({ cwd: join(TEST_DIR, 'nonexistent') })
     expect(names).toEqual([])
   })
 })

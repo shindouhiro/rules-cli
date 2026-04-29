@@ -1,9 +1,8 @@
 import type { AgentRulesDef, RuleInfo } from '~/types'
 import { existsSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
-import { expandHome } from '~/core/agents'
-import { getGlobalStoreDir } from '~/core/store'
+import { resolveAgentPath } from '~/core/agents'
 
 /**
  * 为目录型 agent 创建 symlink
@@ -14,14 +13,10 @@ export function linkRuleToDirectoryAgent(
   options: { global: boolean, cwd: string, force?: boolean },
 ): { targetPath: string, success: boolean, error?: string } {
   const ext = agent.fileExtension || '.md'
-  const baseDir = options.global
-    ? expandHome(agent.globalPath)
-    : resolve(options.cwd, agent.projectPath)
+  const baseDir = resolveAgentPath(agent, options)
 
   const targetFile = join(baseDir, `${rule.name}${ext}`)
-
-  // 源文件：store 中的 rule.md
-  const sourceFile = join(getGlobalStoreDir(), rule.name, 'rule.md')
+  const sourceFile = rule.path
 
   if (!existsSync(sourceFile)) {
     return { targetPath: targetFile, success: false, error: '规则源文件不存在' }
@@ -69,9 +64,7 @@ export function injectRuleToSingleFileAgent(
   agent: AgentRulesDef,
   options: { global: boolean, cwd: string, force?: boolean },
 ): { targetPath: string, success: boolean, error?: string } {
-  const targetFile = options.global
-    ? expandHome(agent.globalPath)
-    : resolve(options.cwd, agent.projectPath)
+  const targetFile = resolveAgentPath(agent, options)
 
   const markerStart = agent.injectMarkerStart || '<!-- rules-cli:start -->'
   const markerEnd = agent.injectMarkerEnd || '<!-- rules-cli:end -->'
@@ -84,21 +77,14 @@ export function injectRuleToSingleFileAgent(
       existing = readFileSync(targetFile, 'utf-8')
     }
 
-    // 构建注入块
-    const ruleBlock = [
-      `${markerStart}`,
-      `<!-- rule: ${rule.name} -->`,
-      rule.content,
-      `<!-- /rule: ${rule.name} -->`,
-      `${markerEnd}`,
-    ].join('\n')
+    const ruleBlock = createRuleBlock(rule.name, rule.content)
+    const fullBlock = [markerStart, ruleBlock, markerEnd].join('\n')
 
     let newContent: string
 
     // 检查是否已有标记区间
     const markerRegex = new RegExp(
       `${escapeRegex(markerStart)}[\\s\\S]*?${escapeRegex(markerEnd)}`,
-      'g',
     )
 
     if (markerRegex.test(existing)) {
@@ -111,26 +97,20 @@ export function injectRuleToSingleFileAgent(
         if (!options.force) {
           return { targetPath: targetFile, success: false, error: '规则已注入（使用 --force 覆盖）' }
         }
-        // 替换已有规则块
-        newContent = existing.replace(ruleRegex, [
-          `<!-- rule: ${rule.name} -->`,
-          rule.content,
-          `<!-- /rule: ${rule.name} -->`,
-        ].join('\n'))
+        newContent = existing.replace(ruleRegex, ruleBlock)
       }
       else {
-        // 在标记区间结束前追加
         newContent = existing.replace(
-          markerEnd,
-          `<!-- rule: ${rule.name} -->\n${rule.content}\n<!-- /rule: ${rule.name} -->\n${markerEnd}`,
+          markerRegex,
+          block => block.replace(markerEnd, `${ruleBlock}\n${markerEnd}`),
         )
       }
     }
     else {
       // 无标记区间 → 追加整个块
       newContent = existing
-        ? `${existing.trimEnd()}\n\n${ruleBlock}\n`
-        : `${ruleBlock}\n`
+        ? `${existing.trimEnd()}\n\n${fullBlock}\n`
+        : `${fullBlock}\n`
     }
 
     writeFileSync(targetFile, newContent, 'utf-8')
@@ -153,9 +133,7 @@ export function removeRuleFromSingleFileAgent(
   agent: AgentRulesDef,
   options: { global: boolean, cwd: string },
 ): { success: boolean, error?: string } {
-  const targetFile = options.global
-    ? expandHome(agent.globalPath)
-    : resolve(options.cwd, agent.projectPath)
+  const targetFile = resolveAgentPath(agent, options)
 
   if (!existsSync(targetFile)) {
     return { success: false, error: '目标文件不存在' }
@@ -192,4 +170,12 @@ export function removeRuleFromSingleFileAgent(
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function createRuleBlock(ruleName: string, content: string): string {
+  return [
+    `<!-- rule: ${ruleName} -->`,
+    content,
+    `<!-- /rule: ${ruleName} -->`,
+  ].join('\n')
 }

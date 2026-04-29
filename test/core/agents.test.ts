@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AGENTS, expandHome, getAgentById, getAgentsByIds } from '~/core/agents'
+import { AGENTS, expandHome, getAgentById, getAgentsByIds, resolveAgentPath } from '~/core/agents'
 
 describe('agents', () => {
   describe('aGENTS', () => {
@@ -78,6 +78,21 @@ describe('agents', () => {
     it('不含 ~ 的路径原样返回', () => {
       expect(expandHome('/absolute/path')).toBe('/absolute/path')
       expect(expandHome('relative/path')).toBe('relative/path')
+    })
+  })
+
+  describe('resolveAgentPath', () => {
+    it('解析项目级路径', () => {
+      const agent = getAgentById('claude-code')!
+      const path = resolveAgentPath(agent, { global: false, cwd: '/tmp/project' })
+      expect(path).toBe('/tmp/project/CLAUDE.md')
+    })
+
+    it('解析全局路径', () => {
+      const agent = getAgentById('claude-code')!
+      const path = resolveAgentPath(agent, { global: true, cwd: '/tmp/project' })
+      expect(path).not.toContain('~')
+      expect(path).toContain('CLAUDE.md')
     })
   })
 })
