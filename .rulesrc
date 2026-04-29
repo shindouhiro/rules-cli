@@ -1,0 +1,20 @@
+{
+  "defaultAgents": [
+    "claude-code"
+  ],
+  "scope": "project",
+  "sources": [
+    {
+      "repo": "continuedev/awesome-rules",
+      "subPath": "rules"
+    },
+    {
+      "repo": "steipete/agent-rules",
+      "subPath": "project-rules"
+    },
+    {
+      "repo": "steipete/agent-rules",
+      "subPath": "global-rules"
+    }
+  ]
+}
