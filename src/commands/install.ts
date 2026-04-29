@@ -9,6 +9,7 @@ import { loadConfig } from '~/core/config'
 import { downloadRule, getSourceKey, searchAllRemoteSources } from '~/core/remote'
 import { resolveIsGlobal } from '~/core/scope'
 import { getStoreRuleDir } from '~/core/store'
+import { printScope, printSection } from '~/core/ui'
 
 export interface InstallOptions {
   source?: string
@@ -22,6 +23,8 @@ export async function installCommand(name: string | undefined, options: InstallO
   const cwd = process.cwd()
   const isGlobal = resolveIsGlobal(options)
   const storeOptions = { global: isGlobal, cwd }
+  printSection('安装远程规则')
+  printScope(isGlobal)
 
   // 解析远程源
   let sources: RuleSource[]

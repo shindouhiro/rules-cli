@@ -5,6 +5,7 @@ import consola from 'consola'
 import pc from 'picocolors'
 import { AGENTS, resolveAgentPath } from '~/core/agents'
 import { getStoreDir, listStoreRuleNames } from '~/core/store'
+import { printSection } from '~/core/ui'
 
 export interface ListOptions {
   store?: boolean
@@ -18,6 +19,7 @@ export async function listCommand(options: ListOptions): Promise<void> {
   const cwd = process.cwd()
   const scopes = getListScopes(options)
   const isStoreMode = options.store ?? false
+  printSection(isStoreMode ? '查看 Store 规则' : '查看已应用规则')
   let totalFound = 0
 
   for (const scope of scopes) {

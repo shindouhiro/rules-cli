@@ -8,6 +8,7 @@ import pc from 'picocolors'
 import { AGENTS, getAgentsByIds, resolveAgentPath } from '~/core/agents'
 import { removeRuleFromSingleFileAgent } from '~/core/linker'
 import { getStoreRuleDir, listStoreRuleNames } from '~/core/store'
+import { printSection } from '~/core/ui'
 
 export interface RemoveOptions {
   agent?: string
@@ -196,6 +197,7 @@ function removeOne(item: RemovableItem, cwd: string): { success: boolean, messag
 }
 
 export async function removeCommand(name: string | undefined, options: RemoveOptions): Promise<void> {
+  printSection('移除规则')
   const cwd = process.cwd()
   const scopes = getScopes(options)
   const includeStore = options.store || options.interactive

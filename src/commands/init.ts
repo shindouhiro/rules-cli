@@ -5,6 +5,7 @@ import { AGENTS } from '~/core/agents'
 import { getGlobalConfigPath, saveConfig } from '~/core/config'
 import { resolveIsGlobal } from '~/core/scope'
 import { ensureStoreDir, getStoreDir } from '~/core/store'
+import { printScope, printSection } from '~/core/ui'
 
 export interface InitOptions {
   global?: boolean
@@ -13,9 +14,8 @@ export interface InitOptions {
 
 export async function initCommand(options: InitOptions): Promise<void> {
   const isGlobal = resolveIsGlobal(options)
-
-  consola.log('')
-  consola.log(pc.bold('🔧 初始化 Rules CLI 配置'))
+  printSection('初始化配置')
+  printScope(isGlobal)
   consola.log('')
 
   // 选择默认 agents

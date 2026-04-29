@@ -10,6 +10,7 @@ import { installCommand } from '~/commands/install'
 import { listCommand } from '~/commands/list'
 import { removeCommand } from '~/commands/remove'
 import { searchCommand } from '~/commands/search'
+import { printDivider } from '~/core/ui'
 import { version } from '../package.json'
 
 const cli = cac('rules')
@@ -17,8 +18,10 @@ const cli = cac('rules')
 // === Banner ===
 function showBanner(): void {
   consola.log('')
-  consola.log(`${pc.bold(pc.cyan('  📐 Rules CLI'))} ${pc.dim(`v${version}`)}`)
-  consola.log(pc.dim('  AI Agent Rules 管理工具'))
+  printDivider()
+  consola.log(`${pc.bold(pc.cyan('  Rules CLI'))} ${pc.dim(`v${version}`)}`)
+  consola.log(pc.dim('  Manage and sync AI Agent rules'))
+  printDivider()
   consola.log('')
 }
 

@@ -8,6 +8,7 @@ import { loadConfig } from '~/core/config'
 import { injectRuleToSingleFileAgent, linkRuleToDirectoryAgent } from '~/core/linker'
 import { getRuleByName, scanStoreRules } from '~/core/scanner'
 import { resolveIsGlobal } from '~/core/scope'
+import { printScope, printSection, printSummary } from '~/core/ui'
 
 export interface ApplyOptions {
   agent?: string
@@ -91,56 +92,14 @@ async function applySelectedRules(
   cwd: string,
   defaultAgents: string[],
 ): Promise<void> {
-  // === 选择目标 agents ===
-  let targetAgents: AgentRulesDef[]
-
-  if (options.agent) {
-    const ids = options.agent.split(',').map(s => s.trim())
-    targetAgents = getAgentsByIds(ids)
-    if (targetAgents.length === 0) {
-      consola.error(`未找到匹配的 Agent: ${options.agent}`)
-      return
-    }
-  }
-  else if (defaultAgents.length > 0) {
-    const selected = await p.multiselect({
-      message: '选择目标 Agents',
-      options: AGENTS.map(a => ({
-        value: a.id,
-        label: `${a.name} ${pc.dim(`(${a.rulesType})`)}`,
-        hint: isGlobal ? a.globalPath : a.projectPath,
-      })),
-      initialValues: getAgentsByIds(defaultAgents).map(a => a.id),
-      required: true,
-    })
-
-    if (p.isCancel(selected)) {
-      consola.info('已取消')
-      return
-    }
-
-    targetAgents = getAgentsByIds(selected as string[])
-  }
-  else {
-    const selected = await p.multiselect({
-      message: '选择目标 Agents',
-      options: AGENTS.map(a => ({
-        value: a.id,
-        label: `${a.name} ${pc.dim(`(${a.rulesType})`)}`,
-        hint: isGlobal ? a.globalPath : a.projectPath,
-      })),
-      required: true,
-    })
-
-    if (p.isCancel(selected)) {
-      consola.info('已取消')
-      return
-    }
-
-    targetAgents = getAgentsByIds(selected as string[])
-  }
+  const targetAgents = await pickTargetAgents(options, defaultAgents, isGlobal)
+  if (!targetAgents)
+    return
 
   const targets = mergeSameSingleFileTargets(targetAgents, isGlobal, cwd)
+  printSection('开始应用规则')
+  printScope(isGlobal)
+  consola.log(pc.dim(`rules: ${selectedRules.length}, agents: ${targets.length}`))
 
   // === 执行应用 ===
   consola.log('')
@@ -164,13 +123,7 @@ async function applySelectedRules(
     }
   }
 
-  consola.log('')
-  if (successCount > 0) {
-    consola.success(`已应用 ${successCount} 条规则`)
-  }
-  if (failCount > 0) {
-    consola.warn(`${failCount} 条跳过或失败`)
-  }
+  printSummary(successCount, failCount, '已应用')
 }
 
 function mergeSameSingleFileTargets(
@@ -213,4 +166,38 @@ function mergeSameSingleFileTargets(
   }
 
   return merged
+}
+
+async function pickTargetAgents(
+  options: ApplyOptions,
+  defaultAgents: string[],
+  isGlobal: boolean,
+): Promise<AgentRulesDef[] | undefined> {
+  if (options.agent) {
+    const ids = options.agent.split(',').map(s => s.trim())
+    const targetAgents = getAgentsByIds(ids)
+    if (targetAgents.length === 0) {
+      consola.error(`未找到匹配的 Agent: ${options.agent}`)
+      return
+    }
+    return targetAgents
+  }
+
+  const selected = await p.multiselect({
+    message: '选择目标 Agents',
+    options: AGENTS.map(a => ({
+      value: a.id,
+      label: `${a.name} ${pc.dim(`(${a.rulesType})`)}`,
+      hint: isGlobal ? a.globalPath : a.projectPath,
+    })),
+    initialValues: defaultAgents.length > 0 ? getAgentsByIds(defaultAgents).map(a => a.id) : undefined,
+    required: true,
+  })
+
+  if (p.isCancel(selected)) {
+    consola.info('已取消')
+    return
+  }
+
+  return getAgentsByIds(selected as string[])
 }

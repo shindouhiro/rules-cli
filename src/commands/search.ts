@@ -4,6 +4,7 @@ import pc from 'picocolors'
 import { loadConfig } from '~/core/config'
 import { searchAllRemoteSources } from '~/core/remote'
 import { searchRules } from '~/core/scanner'
+import { printSection } from '~/core/ui'
 
 export interface SearchOptions {
   remote?: boolean
@@ -11,6 +12,7 @@ export interface SearchOptions {
 
 export async function searchCommand(keyword: string | undefined, options: SearchOptions): Promise<void> {
   const showRemote = options.remote ?? false
+  printSection('搜索规则')
 
   // === 本地搜索 ===
   const localRules = searchRules(keyword, { cwd: process.cwd() })

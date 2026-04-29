@@ -4,6 +4,7 @@ import consola from 'consola'
 import pc from 'picocolors'
 import { resolveIsGlobal } from '~/core/scope'
 import { ensureStoreDir, getStoreRuleDir } from '~/core/store'
+import { printScope, printSection } from '~/core/ui'
 
 export interface CreateOptions {
   global?: boolean
@@ -13,6 +14,8 @@ export interface CreateOptions {
 export async function createCommand(name: string, options: CreateOptions = {}): Promise<void> {
   const isGlobal = resolveIsGlobal(options)
   const scopeOptions = { global: isGlobal }
+  printSection('创建规则')
+  printScope(isGlobal)
 
   ensureStoreDir(scopeOptions)
 
