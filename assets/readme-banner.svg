@@ -1,0 +1,41 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Rules CLI banner">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="0.5" stop-color="#1E293B"/>
+      <stop offset="1" stop-color="#0B1020"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="220" y1="76" x2="980" y2="244" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#34D399"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="1200" height="320" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feBlend in="SourceGraphic" in2="blur" mode="screen"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="320" rx="24" fill="url(#bg)"/>
+  <circle cx="1030" cy="70" r="120" fill="#22D3EE" fill-opacity="0.15"/>
+  <circle cx="150" cy="280" r="180" fill="#34D399" fill-opacity="0.12"/>
+
+  <g filter="url(#glow)">
+    <rect x="78" y="68" width="182" height="182" rx="24" fill="#0B1227" stroke="#334155"/>
+    <path d="M120 170L164 126L208 170L164 214L120 170Z" fill="url(#accent)"/>
+    <path d="M145 170L164 151L183 170L164 189L145 170Z" fill="#0F172A"/>
+  </g>
+
+  <text x="300" y="142" fill="#E2E8F0" font-size="68" font-family="Outfit, Inter, Roboto, sans-serif" font-weight="700">Rules CLI</text>
+  <text x="302" y="192" fill="#94A3B8" font-size="26" font-family="Inter, Roboto, sans-serif">Manage and sync AI Agent rules across tools</text>
+
+  <g>
+    <rect x="304" y="224" width="138" height="42" rx="12" fill="#0F172A" stroke="#22D3EE"/>
+    <text x="329" y="251" fill="#67E8F9" font-size="22" font-family="Inter, Roboto, sans-serif">pnpm</text>
+
+    <rect x="458" y="224" width="174" height="42" rx="12" fill="#0F172A" stroke="#34D399"/>
+    <text x="482" y="251" fill="#6EE7B7" font-size="22" font-family="Inter, Roboto, sans-serif">vitest</text>
+
+    <rect x="648" y="224" width="236" height="42" rx="12" fill="#0F172A" stroke="#F59E0B"/>
+    <text x="673" y="251" fill="#FCD34D" font-size="22" font-family="Inter, Roboto, sans-serif">multi-agent rules</text>
+  </g>
+</svg>
