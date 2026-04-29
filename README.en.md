@@ -2,211 +2,85 @@
 
 [English](./README.en.md) | [中文](./README.md)
 
-![Rules CLI Banner](./assets/readme-banner.svg)
+CLI for managing and syncing AI Agent rules.
 
-A CLI tool to manage and sync AI agent rules. Rules can be stored in project-level `.rules/store` or global `~/.rules/store`, then applied to agents like Cursor, Claude Code, Codex, Gemini CLI, and more.
+## Installation
 
-## Features
-
-- Project store: `.rules/store`
-- Global store: `~/.rules/store`
-- Local and global search (project rule wins on name collision)
-- Remote rule download from GitHub sources
-- Directory-based agents via symlink
-- Single-file agents via marker-based injection
-- Interactive selection for rules and target agents
-
-## Install
-
-Use `pnpm` in development:
-
-```bash
-pnpm install
-pnpm build
-```
-
-Run locally:
-
-```bash
-node dist/cli.mjs --help
-```
-
-After publishing, use:
-
-```bash
-rules --help
-```
+| Scenario | Command |
+| --- | --- |
+| Global install | `pnpm add -g @shindou/rules-cli` |
+| Local development install | `pnpm install` |
 
 ## Quick Start
 
-Initialize config:
+| Step | Command | Description |
+| --- | --- | --- |
+| 1 | `rules init` | Initialize config |
+| 2 | `rules create use-chinese` | Create a rule (global by default) |
+| 3 | `rules apply use-chinese` | Apply rule to agents |
+| 4 | `rules list` | List applied rules |
 
-```bash
-rules init
-```
+## Scope Rules
 
-Create a rule:
-
-```bash
-rules create use-chinese
-```
-
-By default, rules are written to global store:
-
-```text
-~/.rules/store/use-chinese/rule.md
-```
-
-Apply rule:
-
-```bash
-rules apply use-chinese
-```
-
-List applied rules:
-
-```bash
-rules list
-```
-
-## Rule Stores
-
-Project store:
-
-```text
-.rules/store/<rule-name>/rule.md
-```
-
-Global store:
-
-```text
-~/.rules/store/<rule-name>/rule.md
-```
-
-Default scope for `create/install/apply/remove/init` is global. Use `--project` to target project scope.
+| Command group | Default scope | Switch to project scope |
+| --- | --- | --- |
+| `create/install/apply/remove/init` | Global | `--project` |
+| `list` | Project + Global | `--project` or `--global` |
 
 ## Remote Sources
 
-Configure `.rulesrc`:
+`.rulesrc` example:
 
 ```json
 {
   "defaultAgents": ["claude-code"],
   "scope": "global",
   "sources": [
-    { "repo": "continuedev/awesome-rules", "subPath": "rules" },
-    { "repo": "steipete/agent-rules", "subPath": "project-rules" },
-    { "repo": "steipete/agent-rules", "subPath": "global-rules" }
+    { "repo": "owner/repo", "subPath": "rules" }
   ]
 }
 ```
 
-Search remote rules:
+| Action | Command |
+| --- | --- |
+| Remote search | `rules search react --remote` |
+| Install remote rule (global default) | `rules install react` |
+| Install into project store | `rules install react --project` |
 
-```bash
-rules search react --remote
-```
+After `install` succeeds, CLI automatically enters `rules a` flow for agent selection and apply.
 
-Install a remote rule (default global store):
+## Command Reference (with Aliases)
 
-```bash
-rules install react
-```
+| Command | Alias | Purpose | Common options | Example |
+| --- | --- | --- | --- | --- |
+| `search [keyword]` | `s` | Search local/remote rules | `-r, --remote` | `rules s react -r` |
+| `apply [name]` | `a` | Apply rules to agents | `-a, --agent` `-p, --project` `-f, --force` | `rules a react --agent cursor,claude-code` |
+| `list` | `ls` | List applied rules or store rules | `-s, --store` `-p, --project` `-g, --global` | `rules ls --store --global` |
+| `remove [name]` | `rm`, `delete` | Remove applied rules or store rules | `-s, --store` `-i, --interactive` `-p, --project` | `rules rm react --store` |
+| `create <name>` | `c` | Create rule template | `-p, --project` | `rules c use-pnpm --project` |
+| `install [name]` | `i` | Download rules from remote | `-s, --source` `-p, --project` `-f, --force` | `rules i react --source owner/repo` |
+| `init` | `init` | Initialize config and store | `-p, --project` `-g, --global` | `rules init --project` |
 
-Install into project store:
+## Remove Behavior
 
-```bash
-rules install react --project
-```
+| Scenario | Command | Description |
+| --- | --- | --- |
+| Remove applied rule (global default) | `rules remove <name>` | Remove from agent targets |
+| Remove applied rule in project scope | `rules remove <name> --project` | Project scope only |
+| Remove from store | `rules remove <name> --store` | Delete rule directory in store |
+| Interactive remove | `rules remove -i` | Dropdown multi-select, default shows all candidates: project/global + applied/store |
 
-After a successful install, the CLI automatically enters `rules a` flow for agent selection and apply.
+## Supported Agents
 
-## Commands
-
-### init
-
-```bash
-rules init
-rules init --global
-rules init --project
-```
-
-### create
-
-```bash
-rules create <name>
-rules create <name> --global
-rules create <name> --project
-```
-
-### search
-
-```bash
-rules search
-rules search <keyword>
-rules search <keyword> --remote
-```
-
-### install
-
-```bash
-rules install <name>
-rules install <name> --global
-rules install <name> --project
-rules install <name> --source owner/repo
-rules install <name> --force
-```
-
-### apply
-
-```bash
-rules apply
-rules apply <name>
-rules apply <name> --agent cursor,claude-code
-rules apply <name> --global
-rules apply <name> --project
-rules apply <name> --force
-```
-
-### list
-
-```bash
-rules list
-rules list --project
-rules list --global
-rules list --store
-rules list --store --project
-rules list --store --global
-```
-
-### remove
-
-```bash
-rules remove <name>
-rules remove <name> --agent claude-code
-rules remove <name> --global
-rules remove <name> --project
-rules remove <name> --store
-rules remove <name> --store --project
-rules remove -i
-```
-
-`-i` shows all removable candidates by default (project/global + applied/store).
-
-## Development
-
-```bash
-pnpm install
-pnpm test
-pnpm typecheck
-pnpm lint
-pnpm build
-```
-
-Tech stack:
-
-- pnpm
-- TypeScript
-- tsdown
-- Vitest
-- @antfu/eslint-config
+| Agent | Rule mode |
+| --- | --- |
+| Cursor | directory (symlink) |
+| Trae | directory (symlink) |
+| Kiro | directory (symlink) |
+| Claude Code | single-file (injected) |
+| Codex / OpenAI | single-file (injected) |
+| Gemini CLI | single-file (injected) |
+| Antigravity | single-file (injected) |
+| Windsurf | single-file (injected) |
+| Cline / Roo Code | single-file (injected) |
+| GitHub Copilot | single-file (injected) |

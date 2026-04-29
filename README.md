@@ -1,48 +1,35 @@
 # Rules CLI
 
+[中文](./README.md) | [English](./README.en.md)
+
 管理和同步 AI Agent 规则的命令行工具。
 
 ## 安装
 
-```bash
-pnpm add -g @shindou/rules-cli
-```
+| 场景 | 命令 |
+| --- | --- |
+| 全局安装 | `pnpm add -g @shindou/rules-cli` |
+| 本地开发安装 | `pnpm install` |
 
 ## 快速开始
 
-1. 初始化配置
-
-```bash
-rules init
-```
-
-2. 创建规则（默认全局）
-
-```bash
-rules create use-chinese
-```
-
-3. 应用规则到 Agent
-
-```bash
-rules apply use-chinese
-```
-
-4. 查看已应用规则
-
-```bash
-rules list
-```
+| 步骤 | 命令 | 说明 |
+| --- | --- | --- |
+| 1 | `rules init` | 初始化配置 |
+| 2 | `rules create use-chinese` | 创建规则（默认全局） |
+| 3 | `rules apply use-chinese` | 应用规则到 Agent |
+| 4 | `rules list` | 查看已应用规则 |
 
 ## 作用域规则
 
-- `create/install/apply/remove/init` 默认作用域是全局
-- 传 `--project` 使用项目作用域
-- `list` 默认同时显示项目和全局
+| 命令组 | 默认作用域 | 切换到项目作用域 |
+| --- | --- | --- |
+| `create/install/apply/remove/init` | 全局 | `--project` |
+| `list` | 同时显示项目 + 全局 | `--project` 或 `--global` |
 
-## 远程规则
+## 远程规则源
 
-配置 `.rulesrc`：
+`.rulesrc` 示例：
 
 ```json
 {
@@ -54,72 +41,46 @@ rules list
 }
 ```
 
-搜索并安装：
+| 操作 | 命令 |
+| --- | --- |
+| 远程搜索 | `rules search react --remote` |
+| 安装远程规则（默认全局） | `rules install react` |
+| 安装到项目 | `rules install react --project` |
 
-```bash
-rules search react --remote
-rules install react
-```
+`install` 成功后会自动进入 `rules a` 进行 Agent 选择并应用规则。
 
-`install` 成功后会自动进入 `rules a` 选择 Agent 并应用规则。
+## 命令总览（含 Alias）
 
-## 常用命令
+| 主命令 | Alias | 用途 | 常用参数 | 示例 |
+| --- | --- | --- | --- | --- |
+| `search [keyword]` | `s` | 搜索本地/远程规则 | `-r, --remote` | `rules s react -r` |
+| `apply [name]` | `a` | 应用规则到 Agent | `-a, --agent` `-p, --project` `-f, --force` | `rules a react --agent cursor,claude-code` |
+| `list` | `ls` | 列出已应用规则或 store 规则 | `-s, --store` `-p, --project` `-g, --global` | `rules ls --store --global` |
+| `remove [name]` | `rm`, `delete` | 删除已应用规则或 store 规则 | `-s, --store` `-i, --interactive` `-p, --project` | `rules rm react --store` |
+| `create <name>` | `c` | 创建规则模板 | `-p, --project` | `rules c use-pnpm --project` |
+| `install [name]` | `i` | 从远程下载规则 | `-s, --source` `-p, --project` `-f, --force` | `rules i react --source owner/repo` |
+| `init` | `init` | 初始化配置和 store | `-p, --project` `-g, --global` | `rules init --project` |
 
-```bash
-# 初始化
-rules init
-rules init --project
+## Remove 行为
 
-# 创建
-rules create <name>
-rules create <name> --project
-
-# 搜索
-rules search
-rules search <keyword>
-rules search <keyword> --remote
-
-# 安装
-rules install <name>
-rules install <name> --project
-rules install <name> --source owner/repo
-rules install <name> --force
-
-# 应用
-rules apply
-rules apply <name>
-rules apply <name> --agent cursor,claude-code
-rules apply <name> --project
-rules apply <name> --force
-
-# 列表
-rules list
-rules list --project
-rules list --global
-rules list --store
-
-# 删除
-rules remove <name>
-rules remove <name> --project
-rules remove <name> --store
-rules remove -i
-```
-
-## 删除规则说明
-
-- 默认 `rules remove <name>`：删除已应用规则（默认全局）
-- `rules remove <name> --store`：删除 store 内规则目录
-- `rules remove -i`：交互下拉多选，默认展示 project/global + applied/store 全部候选
+| 场景 | 命令 | 说明 |
+| --- | --- | --- |
+| 删除已应用规则（默认全局） | `rules remove <name>` | 删除 Agent 目标中的规则 |
+| 删除项目已应用规则 | `rules remove <name> --project` | 仅项目作用域 |
+| 删除 store 规则目录 | `rules remove <name> --store` | 删除 store 中该规则目录 |
+| 交互删除 | `rules remove -i` | 下拉多选，默认展示 project/global + applied/store 全量候选 |
 
 ## 支持的 Agent
 
-- Cursor
-- Trae
-- Kiro
-- Claude Code
-- Codex / OpenAI
-- Gemini CLI
-- Antigravity
-- Windsurf
-- Cline / Roo Code
-- GitHub Copilot
+| Agent | 规则写入方式 |
+| --- | --- |
+| Cursor | directory (symlink) |
+| Trae | directory (symlink) |
+| Kiro | directory (symlink) |
+| Claude Code | single-file (injected) |
+| Codex / OpenAI | single-file (injected) |
+| Gemini CLI | single-file (injected) |
+| Antigravity | single-file (injected) |
+| Windsurf | single-file (injected) |
+| Cline / Roo Code | single-file (injected) |
+| GitHub Copilot | single-file (injected) |
