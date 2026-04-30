@@ -15,8 +15,29 @@ import { version } from '../package.json'
 
 const cli = cac('rules')
 
+const COMMAND_HELP = [
+  ['search [keyword]', '搜索规则', '-r, --remote  -c, --cursor'],
+  ['apply [name]', '应用规则到 agents', '-a, --agent  -g, --global  -p, --project  -f, --force'],
+  ['list', '列出规则', '-s, --store  -g, --global  -p, --project'],
+  ['remove [name]', '移除已应用的规则', '-a, --agent  -s, --store  -i, --interactive  -g, --global  -p, --project'],
+  ['create <name>', '创建新规则模板', '-g, --global  -p, --project'],
+  ['install [name]', '从远程源下载规则', '-s, --source  -c, --cursor  -g, --global  -p, --project  -f, --force'],
+  ['init', '初始化配置和存储目录', '-g, --global  -p, --project'],
+] as const
+
 function isHelpOption(options: { help?: boolean }): boolean {
   return options.help === true
+}
+
+function formatCommandHelp(): string {
+  const commandWidth = Math.max(...COMMAND_HELP.map(([command]) => command.length))
+  const descWidth = Math.max(...COMMAND_HELP.map(([, desc]) => desc.length))
+
+  return COMMAND_HELP
+    .map(([command, desc, options]) =>
+      `  ${command.padEnd(commandWidth)}  ${desc.padEnd(descWidth)}  ${pc.dim(options)}`,
+    )
+    .join('\n')
 }
 
 // === Banner ===
@@ -132,7 +153,17 @@ cli
 
 // === Global options ===
 cli.help(sections =>
-  sections.filter(section => !section.title?.startsWith('For more info')),
+  sections
+    .filter(section => !section.title?.startsWith('For more info'))
+    .map((section) => {
+      if (section.title === 'Commands') {
+        return {
+          ...section,
+          body: formatCommandHelp(),
+        }
+      }
+      return section
+    }),
 )
 cli.version(version)
 
