@@ -22,6 +22,8 @@
     "access": "public"
   },
   "files": [
+    "LICENSE",
+    "assets",
     "dist"
   ],
   "scripts": {

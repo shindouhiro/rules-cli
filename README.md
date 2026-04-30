@@ -5,7 +5,7 @@
 # ⚡ Rules CLI (@shindou/rules-cli)
 
 <p align="center">
-  <img src="./assets/readme-banner.svg" alt="Rules CLI Banner" width="600" />
+  <img src="https://raw.githubusercontent.com/shindouhiro/rules-cli/master/assets/readme-banner.svg" alt="Rules CLI Banner" width="600" />
 </p>
 
 <p align="center">
