@@ -27,6 +27,7 @@ describe('commands/list --store', () => {
   afterEach(() => {
     cleanTmpDir()
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
     vi.resetModules()
     vi.doUnmock('node:os')
   })
@@ -35,6 +36,7 @@ describe('commands/list --store', () => {
     vi.doMock('node:os', () => ({
       homedir: () => HOME_DIR,
     }))
+    vi.stubEnv('HOME', HOME_DIR)
     vi.spyOn(process, 'cwd').mockReturnValue(PROJECT_DIR)
     const logSpy = vi.spyOn(consola, 'log').mockImplementation(() => {})
     vi.spyOn(consola, 'info').mockImplementation(() => {})
@@ -53,6 +55,7 @@ describe('commands/list --store', () => {
     vi.doMock('node:os', () => ({
       homedir: () => HOME_DIR,
     }))
+    vi.stubEnv('HOME', HOME_DIR)
     vi.spyOn(process, 'cwd').mockReturnValue(PROJECT_DIR)
     const logSpy = vi.spyOn(consola, 'log').mockImplementation(() => {})
     vi.spyOn(consola, 'info').mockImplementation(() => {})
@@ -65,5 +68,27 @@ describe('commands/list --store', () => {
     expect(logs).not.toContain('全局 Store')
     expect(logs).toContain('project-rule')
     expect(logs).not.toContain('global-rule')
+  })
+
+  it('显示没有 rules-cli 标记的全局单文件规则', async () => {
+    mkdirSync(join(HOME_DIR, '.gemini'), { recursive: true })
+    writeFileSync(join(HOME_DIR, '.gemini', 'GEMINI.md'), '手写 Gemini 规则', 'utf-8')
+
+    vi.doMock('node:os', () => ({
+      homedir: () => HOME_DIR,
+    }))
+    vi.stubEnv('HOME', HOME_DIR)
+    vi.spyOn(process, 'cwd').mockReturnValue(PROJECT_DIR)
+    const logSpy = vi.spyOn(consola, 'log').mockImplementation(() => {})
+    vi.spyOn(consola, 'info').mockImplementation(() => {})
+
+    const { listCommand } = await import('~/commands/list')
+    await listCommand({ global: true })
+
+    const logs = logSpy.mock.calls.flat().join('\n')
+    expect(logs).toContain('Gemini CLI / Antigravity')
+    expect(logs).toContain('GEMINI.md —')
+    expect(logs).toContain('手写 Gemini 规则')
+    expect(logs).toContain('(manual, not managed by rules-cli)')
   })
 })

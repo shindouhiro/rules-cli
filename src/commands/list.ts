@@ -1,5 +1,5 @@
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import process from 'node:process'
 import consola from 'consola'
 import pc from 'picocolors'
@@ -106,8 +106,16 @@ function listAppliedScope(scope: ListScope, cwd: string): number {
     const content = readFileSync(targetFile, 'utf-8')
     const markerStart = agents[0].injectMarkerStart || '<!-- rules-cli:start -->'
 
-    if (!content.includes(markerStart))
+    if (!content.includes(markerStart)) {
+      if (content.trim().length === 0)
+        continue
+
+      const agentLabel = agents.map(a => a.name).join(' / ')
+      consola.log(`\n${pc.bold(pc.cyan(agentLabel))} ${pc.dim(targetFile)}`)
+      consola.log(`  ${pc.yellow('📄')} ${formatManualRule(targetFile, content)} ${pc.dim('(manual, not managed by rules-cli)')}`)
+      found++
       continue
+    }
 
     // 提取注入的规则名称
     const ruleNames = [...content.matchAll(/<!-- rule: (.+?) -->/g)].map(m => m[1])
@@ -129,6 +137,31 @@ function listAppliedScope(scope: ListScope, cwd: string): number {
     consola.log(`  ${pc.dim('无')}`)
 
   return found
+}
+
+function formatManualRule(targetFile: string, content: string): string {
+  const summary = getManualRuleSummary(content)
+  if (!summary)
+    return basename(targetFile)
+
+  return `${basename(targetFile)} — ${pc.dim(summary)}`
+}
+
+function getManualRuleSummary(content: string): string | undefined {
+  const firstMeaningfulLine = content
+    .split(/\r?\n/u)
+    .map(line => line.trim())
+    .find(line => line.length > 0 && !line.startsWith('<!--'))
+
+  if (!firstMeaningfulLine)
+    return undefined
+
+  const cleaned = firstMeaningfulLine
+    .replace(/^#+\s*/u, '')
+    .replace(/^\*\*(.+?)\*\*/u, '$1')
+    .trim()
+
+  return cleaned.length > 80 ? `${cleaned.slice(0, 77)}...` : cleaned
 }
 
 function listStoreScope(scope: ListScope, cwd: string): number {
