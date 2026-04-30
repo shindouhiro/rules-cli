@@ -49,16 +49,27 @@
 
 `install` 成功后会自动进入 `rules a` 进行 Agent 选择并应用规则。
 
+## cursor.directory
+
+可直接搜索和下载 [cursor.directory](https://cursor.directory/) 上的规则：
+
+| 操作 | 命令 |
+| --- | --- |
+| 搜索 cursor.directory | `rules search vue --cursor` |
+| 交互选择并下载 | `rules install --cursor` |
+| 按 slug 下载 | `rules install vue-best-practices --cursor` |
+| 使用 source 指定 | `rules install vue-best-practices --source cursor.directory` |
+
 ## 命令总览（含 Alias）
 
 | 主命令 | Alias | 用途 | 常用参数 | 示例 |
 | --- | --- | --- | --- | --- |
-| `search [keyword]` | `s` | 搜索本地/远程规则 | `-r, --remote` | `rules s react -r` |
+| `search [keyword]` | `s` | 搜索本地/远程规则 | `-r, --remote` `-c, --cursor` | `rules s react -r` |
 | `apply [name]` | `a` | 应用规则到 Agent | `-a, --agent` `-p, --project` `-f, --force` | `rules a react --agent cursor,claude-code` |
 | `list` | `ls` | 列出已应用规则或 store 规则 | `-s, --store` `-p, --project` `-g, --global` | `rules ls --store --global` |
 | `remove [name]` | `rm`, `delete` | 删除已应用规则或 store 规则 | `-s, --store` `-i, --interactive` `-p, --project` | `rules rm react --store` |
 | `create <name>` | `c` | 创建规则模板 | `-p, --project` | `rules c use-pnpm --project` |
-| `install [name]` | `i` | 从远程下载规则 | `-s, --source` `-p, --project` `-f, --force` | `rules i react --source owner/repo` |
+| `install [name]` | `i` | 从远程下载规则 | `-s, --source` `-c, --cursor` `-p, --project` `-f, --force` | `rules i react --source owner/repo` |
 | `init` | `init` | 初始化配置和 store | `-p, --project` `-g, --global` | `rules init --project` |
 
 ## Remove 行为

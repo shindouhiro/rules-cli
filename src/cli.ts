@@ -30,7 +30,8 @@ cli
   .command('search [keyword]', '搜索规则 (alias: s)')
   .alias('s')
   .option('-r, --remote', '同时搜索远程规则源')
-  .action(async (keyword: string | undefined, options: { remote?: boolean }) => {
+  .option('-c, --cursor', '搜索 cursor.directory 规则')
+  .action(async (keyword: string | undefined, options: { remote?: boolean, cursor?: boolean }) => {
     showBanner()
     await searchCommand(keyword, options)
   })
@@ -90,11 +91,12 @@ cli
 cli
   .command('install [name]', '从远程源下载规则 (alias: i)')
   .alias('i')
-  .option('-s, --source <repo>', '指定 GitHub 仓库 (owner/repo)')
+  .option('-s, --source <repo>', '指定 GitHub 仓库 (owner/repo) 或 cursor.directory')
+  .option('-c, --cursor', '从 cursor.directory 下载规则')
   .option('-g, --global', '下载到全局 store')
   .option('-p, --project', '下载到当前项目 store')
   .option('-f, --force', '强制覆盖已存在的规则')
-  .action(async (name: string | undefined, options: { source?: string, global?: boolean, project?: boolean, force?: boolean }) => {
+  .action(async (name: string | undefined, options: { source?: string, cursor?: boolean, global?: boolean, project?: boolean, force?: boolean }) => {
     showBanner()
     await installCommand(name, options)
   })

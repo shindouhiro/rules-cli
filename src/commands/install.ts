@@ -6,6 +6,7 @@ import consola from 'consola'
 import pc from 'picocolors'
 import { applyRulesByNames } from '~/commands/apply'
 import { loadConfig } from '~/core/config'
+import { downloadCursorDirectoryRule, isCursorDirectorySource, searchCursorDirectoryRules } from '~/core/cursor-directory'
 import { downloadRule, getSourceKey, searchAllRemoteSources } from '~/core/remote'
 import { resolveIsGlobal } from '~/core/scope'
 import { getStoreRuleDir } from '~/core/store'
@@ -13,6 +14,7 @@ import { printScope, printSection } from '~/core/ui'
 
 export interface InstallOptions {
   source?: string
+  cursor?: boolean
   force?: boolean
   global?: boolean
   project?: boolean
@@ -25,6 +27,18 @@ export async function installCommand(name: string | undefined, options: InstallO
   const storeOptions = { global: isGlobal, cwd }
   printSection('安装远程规则')
   printScope(isGlobal)
+
+  if (options.cursor || isCursorDirectorySource(options.source)) {
+    const installed = await installFromCursorDirectory(name, storeOptions, options.force)
+    if (!installed)
+      return
+
+    if (name) {
+      consola.info(`进入 ${pc.cyan(`rules a ${name}`)} 选择 agents 并应用规则`)
+      await applyRulesByNames([name], { global: isGlobal, force: options.force })
+    }
+    return
+  }
 
   // 解析远程源
   let sources: RuleSource[]
@@ -104,7 +118,9 @@ export async function installCommand(name: string | undefined, options: InstallO
     installed = await downloadSingle(ruleName, ruleSource, storeOptions, options.force)
   }
   else {
-    installed = await downloadFromSources(ruleName, sources, storeOptions, options.force)
+    installed = await downloadFromSources(ruleName, sources, storeOptions, options.force, {
+      fallbackToCursorDirectory: true,
+    })
   }
 
   if (!installed) {
@@ -113,6 +129,65 @@ export async function installCommand(name: string | undefined, options: InstallO
 
   consola.info(`进入 ${pc.cyan(`rules a ${ruleName}`)} 选择 agents 并应用规则`)
   await applyRulesByNames([ruleName], { global: isGlobal, force: options.force })
+}
+
+async function installFromCursorDirectory(
+  name: string | undefined,
+  storeOptions: { global?: boolean, cwd?: string },
+  force?: boolean,
+): Promise<boolean> {
+  if (name)
+    return downloadCursorDirectorySingle(name, storeOptions, force)
+
+  consola.log(pc.dim('正在搜索 cursor.directory 规则...\n'))
+
+  let allRemote
+  try {
+    allRemote = await searchCursorDirectoryRules()
+  }
+  catch (err) {
+    consola.error(`cursor.directory 搜索失败: ${err instanceof Error ? err.message : err}`)
+    return false
+  }
+
+  if (allRemote.length === 0) {
+    consola.info('cursor.directory 没有找到任何规则')
+    return false
+  }
+
+  const selected = await p.multiselect({
+    message: '选择要从 cursor.directory 下载的规则',
+    options: allRemote.map(r => ({
+      value: r.name,
+      label: r.name,
+      hint: r.meta?.name || r.source,
+    })),
+    required: true,
+  })
+
+  if (p.isCancel(selected)) {
+    consola.info('已取消')
+    return false
+  }
+
+  let successCount = 0
+  const installedRules: string[] = []
+  for (const ruleName of selected as string[]) {
+    const result = await downloadCursorDirectorySingle(ruleName, storeOptions, force)
+    if (result) {
+      successCount++
+      installedRules.push(ruleName)
+    }
+  }
+
+  consola.log('')
+  consola.success(`已从 cursor.directory 下载 ${successCount} 条规则到本地 store`)
+  if (installedRules.length > 0) {
+    consola.info(`进入 ${pc.cyan('rules a')} 选择 agents 并应用已下载规则`)
+    await applyRulesByNames(installedRules, { global: storeOptions.global, force })
+  }
+
+  return successCount > 0
 }
 
 function canDownload(name: string, storeOptions: { global?: boolean, cwd?: string }, force?: boolean): boolean {
@@ -131,6 +206,7 @@ async function downloadFromSources(
   sources: RuleSource[],
   storeOptions: { global?: boolean, cwd?: string },
   force?: boolean,
+  options: { fallbackToCursorDirectory?: boolean } = {},
 ): Promise<boolean> {
   if (!canDownload(name, storeOptions, force))
     return false
@@ -153,6 +229,14 @@ async function downloadFromSources(
   for (const error of errors) {
     consola.log(pc.dim(`  ${error}`))
   }
+
+  if (options.fallbackToCursorDirectory) {
+    consola.log(pc.dim(`正在尝试从 cursor.directory 下载 ${name} ...`))
+    return await downloadCursorDirectorySingle(name, storeOptions, force, {
+      skipExistingCheck: true,
+    })
+  }
+
   return false
 }
 
@@ -168,6 +252,27 @@ async function downloadSingle(
   try {
     consola.log(pc.dim(`正在从 ${getSourceKey(source)} 下载 ${name} ...`))
     const dir = await downloadRule(source, name, storeOptions)
+    consola.success(`${pc.green(name)} → ${pc.dim(dir)}`)
+    return true
+  }
+  catch (err) {
+    consola.error(`下载失败: ${name} — ${err instanceof Error ? err.message : err}`)
+    return false
+  }
+}
+
+async function downloadCursorDirectorySingle(
+  name: string,
+  storeOptions: { global?: boolean, cwd?: string },
+  force?: boolean,
+  options: { skipExistingCheck?: boolean } = {},
+): Promise<boolean> {
+  if (!options.skipExistingCheck && !canDownload(name, storeOptions, force))
+    return false
+
+  try {
+    consola.log(pc.dim(`正在从 cursor.directory 下载 ${name} ...`))
+    const dir = await downloadCursorDirectoryRule(name, storeOptions)
     consola.success(`${pc.green(name)} → ${pc.dim(dir)}`)
     return true
   }

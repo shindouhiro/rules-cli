@@ -2,16 +2,19 @@ import process from 'node:process'
 import consola from 'consola'
 import pc from 'picocolors'
 import { loadConfig } from '~/core/config'
+import { searchCursorDirectoryRules } from '~/core/cursor-directory'
 import { searchAllRemoteSources } from '~/core/remote'
 import { searchRules } from '~/core/scanner'
 import { printSection } from '~/core/ui'
 
 export interface SearchOptions {
   remote?: boolean
+  cursor?: boolean
 }
 
 export async function searchCommand(keyword: string | undefined, options: SearchOptions): Promise<void> {
   const showRemote = options.remote ?? false
+  const showCursorDirectory = options.cursor ?? false
   printSection('搜索规则')
 
   // === 本地搜索 ===
@@ -77,8 +80,43 @@ export async function searchCommand(keyword: string | undefined, options: Search
       consola.error(`远程搜索失败: ${err instanceof Error ? err.message : err}`)
     }
   }
-  else if (localRules.length === 0) {
+
+  // === cursor.directory 搜索 ===
+  if (showCursorDirectory) {
+    consola.log(pc.bold('⌘  cursor.directory 搜索中...\n'))
+
+    try {
+      const cursorResults = await searchCursorDirectoryRules(keyword)
+
+      if (cursorResults.length === 0) {
+        consola.info('cursor.directory 没有找到匹配的规则')
+        return
+      }
+
+      consola.log(pc.bold(`⌘  cursor.directory 规则 (${cursorResults.length} 条)：\n`))
+
+      for (const rule of cursorResults) {
+        const name = pc.bold(pc.magenta(rule.name))
+        const desc = rule.meta?.name
+          ? pc.dim(` — ${rule.meta.name}`)
+          : ''
+        const tags = rule.meta?.tags?.length
+          ? pc.dim(` [${rule.meta.tags.join(', ')}]`)
+          : ''
+
+        consola.log(`  ${name}${desc}${tags}`)
+      }
+      consola.log('')
+      consola.info(`运行 ${pc.cyan('rules install <slug> --cursor')} 从 cursor.directory 下载规则`)
+    }
+    catch (err) {
+      consola.error(`cursor.directory 搜索失败: ${err instanceof Error ? err.message : err}`)
+    }
+  }
+
+  if (!showRemote && !showCursorDirectory && localRules.length === 0) {
     consola.info(`运行 ${pc.cyan('rules create <name>')} 创建规则`)
     consola.info(`运行 ${pc.cyan('rules search --remote')} 搜索远程规则`)
+    consola.info(`运行 ${pc.cyan('rules search --cursor')} 搜索 cursor.directory`)
   }
 }

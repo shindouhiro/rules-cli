@@ -49,16 +49,27 @@ CLI for managing and syncing AI Agent rules.
 
 After `install` succeeds, CLI automatically enters `rules a` flow for agent selection and apply.
 
+## cursor.directory
+
+You can search and download rules from [cursor.directory](https://cursor.directory/) directly:
+
+| Action | Command |
+| --- | --- |
+| Search cursor.directory | `rules search vue --cursor` |
+| Select and download interactively | `rules install --cursor` |
+| Download by slug | `rules install vue-best-practices --cursor` |
+| Use source option | `rules install vue-best-practices --source cursor.directory` |
+
 ## Command Reference (with Aliases)
 
 | Command | Alias | Purpose | Common options | Example |
 | --- | --- | --- | --- | --- |
-| `search [keyword]` | `s` | Search local/remote rules | `-r, --remote` | `rules s react -r` |
+| `search [keyword]` | `s` | Search local/remote rules | `-r, --remote` `-c, --cursor` | `rules s react -r` |
 | `apply [name]` | `a` | Apply rules to agents | `-a, --agent` `-p, --project` `-f, --force` | `rules a react --agent cursor,claude-code` |
 | `list` | `ls` | List applied rules or store rules | `-s, --store` `-p, --project` `-g, --global` | `rules ls --store --global` |
 | `remove [name]` | `rm`, `delete` | Remove applied rules or store rules | `-s, --store` `-i, --interactive` `-p, --project` | `rules rm react --store` |
 | `create <name>` | `c` | Create rule template | `-p, --project` | `rules c use-pnpm --project` |
-| `install [name]` | `i` | Download rules from remote | `-s, --source` `-p, --project` `-f, --force` | `rules i react --source owner/repo` |
+| `install [name]` | `i` | Download rules from remote | `-s, --source` `-c, --cursor` `-p, --project` `-f, --force` | `rules i react --source owner/repo` |
 | `init` | `init` | Initialize config and store | `-p, --project` `-g, --global` | `rules init --project` |
 
 ## Remove Behavior
