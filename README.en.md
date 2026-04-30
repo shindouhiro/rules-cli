@@ -12,8 +12,8 @@
   <a href="https://www.npmjs.com/package/@shindou/rules-cli">
     <img src="https://img.shields.io/npm/v/@shindou/rules-cli?color=a1b858&label=npm" alt="npm version" />
   </a>
-  <a href="https://github.com/shindouhiro/rules-cli/actions/workflows/test.yml">
-    <img src="https://github.com/shindouhiro/rules-cli/actions/workflows/test.yml/badge.svg" alt="CI" />
+  <a href="https://github.com/shindouhiro/rules-cli/actions/workflows/publish-preview.yml">
+    <img src="https://github.com/shindouhiro/rules-cli/actions/workflows/publish-preview.yml/badge.svg" alt="Publish Preview" />
   </a>
   <a href="./LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
