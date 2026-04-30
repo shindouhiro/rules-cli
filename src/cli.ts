@@ -15,6 +15,10 @@ import { version } from '../package.json'
 
 const cli = cac('rules')
 
+function isHelpOption(options: { help?: boolean }): boolean {
+  return options.help === true
+}
+
 // === Banner ===
 function showBanner(): void {
   consola.log('')
@@ -31,7 +35,9 @@ cli
   .alias('s')
   .option('-r, --remote', '同时搜索远程规则源')
   .option('-c, --cursor', '搜索 cursor.directory 规则')
-  .action(async (keyword: string | undefined, options: { remote?: boolean, cursor?: boolean }) => {
+  .action(async (keyword: string | undefined, options: { remote?: boolean, cursor?: boolean, help?: boolean }) => {
+    if (isHelpOption(options))
+      return
     showBanner()
     await searchCommand(keyword, options)
   })
@@ -44,7 +50,9 @@ cli
   .option('-g, --global', '应用到全局（用户级）目录')
   .option('-p, --project', '应用到当前项目目录')
   .option('-f, --force', '强制覆盖已存在的规则')
-  .action(async (name: string | undefined, options: { agent?: string, global?: boolean, project?: boolean, force?: boolean }) => {
+  .action(async (name: string | undefined, options: { agent?: string, global?: boolean, project?: boolean, force?: boolean, help?: boolean }) => {
+    if (isHelpOption(options))
+      return
     showBanner()
     await applyCommand(name, options)
   })
@@ -56,7 +64,9 @@ cli
   .option('-s, --store', '列出 store 中的规则')
   .option('-p, --project', '只列出当前项目已应用的规则')
   .option('-g, --global', '只列出全局已应用的规则')
-  .action(async (options: { store?: boolean, project?: boolean, global?: boolean }) => {
+  .action(async (options: { store?: boolean, project?: boolean, global?: boolean, help?: boolean }) => {
+    if (isHelpOption(options))
+      return
     showBanner()
     await listCommand(options)
   })
@@ -71,7 +81,9 @@ cli
   .option('-i, --interactive', '交互模式：下拉选择要删除的项（默认展示所有）')
   .option('-g, --global', '从全局目录移除')
   .option('-p, --project', '从当前项目目录移除')
-  .action(async (name: string | undefined, options: { agent?: string, store?: boolean, interactive?: boolean, global?: boolean, project?: boolean }) => {
+  .action(async (name: string | undefined, options: { agent?: string, store?: boolean, interactive?: boolean, global?: boolean, project?: boolean, help?: boolean }) => {
+    if (isHelpOption(options))
+      return
     showBanner()
     await removeCommand(name, options)
   })
@@ -82,7 +94,9 @@ cli
   .alias('c')
   .option('-g, --global', '创建到全局 store')
   .option('-p, --project', '创建到当前项目 store')
-  .action(async (name: string, options: { global?: boolean, project?: boolean }) => {
+  .action(async (name: string, options: { global?: boolean, project?: boolean, help?: boolean }) => {
+    if (isHelpOption(options))
+      return
     showBanner()
     await createCommand(name, options)
   })
@@ -96,7 +110,9 @@ cli
   .option('-g, --global', '下载到全局 store')
   .option('-p, --project', '下载到当前项目 store')
   .option('-f, --force', '强制覆盖已存在的规则')
-  .action(async (name: string | undefined, options: { source?: string, cursor?: boolean, global?: boolean, project?: boolean, force?: boolean }) => {
+  .action(async (name: string | undefined, options: { source?: string, cursor?: boolean, global?: boolean, project?: boolean, force?: boolean, help?: boolean }) => {
+    if (isHelpOption(options))
+      return
     showBanner()
     await installCommand(name, options)
   })
@@ -107,13 +123,17 @@ cli
   .alias('init')
   .option('-g, --global', '初始化全局配置')
   .option('-p, --project', '初始化当前项目配置')
-  .action(async (options: { global?: boolean, project?: boolean }) => {
+  .action(async (options: { global?: boolean, project?: boolean, help?: boolean }) => {
+    if (isHelpOption(options))
+      return
     showBanner()
     await initCommand(options)
   })
 
 // === Global options ===
-cli.help()
+cli.help(sections =>
+  sections.filter(section => !section.title?.startsWith('For more info')),
+)
 cli.version(version)
 
 // === Run ===
@@ -121,7 +141,7 @@ async function main(): Promise<void> {
   try {
     cli.parse()
 
-    if (!cli.matchedCommand) {
+    if (!cli.matchedCommand && !cli.options.help && !cli.options.version) {
       showBanner()
       cli.outputHelp()
     }
