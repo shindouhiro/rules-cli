@@ -26,6 +26,7 @@
 
 ## ✨ Features
 
+- 🖥️ **Immersive Web Dashboard**: built-in modern Web UI (`rules ui`) powered by Vue 3 SFC and Tailwind CSS, supporting zero-config launch and system default browser integration.
 - 🚀 **Create and apply in one flow**: create rule templates and apply them to selected AI assistants.
 - 📦 **Multi-assistant support**: supports both directory-based rules and single-file injected rules.
 - 🔗 **Shared by design**: directory-based assistants use symlinks by default, so one rule can be reused across multiple targets.
@@ -137,10 +138,25 @@ rules rm -i
 rules rm -i --store --global
 ```
 
+### 8. Immersive Web Dashboard
+
+Launch a fully componentized modern Web UI dashboard with a single command, supporting automatic open in your default browser:
+
+```bash
+rules ui
+rules ui --port 8080
+```
+
+- **Unified Store View**: displays global and local project rule stores side by side.
+- **Bi-directional Scope Sync**: multi-select and distribute rules instantly to project or global targets.
+- **High-Fidelity Real-time Editor**: live editing drawer for `rule.md` source and frontmatter with direct disk saving.
+- **Mapping Tracker**: visualizes active symlinks/injections and provides single-click unbinding support.
+
 ## 🛠️ Command Reference
 
 | Command | Alias | Description | Common options |
 | :--- | :--- | :--- | :--- |
+| `ui` | - | Launch the immersive Web UI management dashboard service | `--port <number>`: specify local listening port |
 | `search [keyword]` | `s` | Search local rules, GitHub remote sources, or cursor.directory rules | `-r, --remote`: search remote sources<br>`-c, --cursor`: search cursor.directory |
 | `install [name]` | `i` | Download a remote rule into the local store and enter the apply flow | `-s, --source <repo>`: GitHub repo or cursor.directory<br>`-c, --cursor`: download from cursor.directory<br>`-g, --global`: download to global store<br>`-p, --project`: download to project store<br>`-f, --force`: overwrite existing rule |
 | `apply [name]` | `a` | Apply store rules to AI assistants | `-a, --agent <agents>`: target agents<br>`-g, --global`: apply to global targets<br>`-p, --project`: apply to project targets<br>`-f, --force`: force overwrite |

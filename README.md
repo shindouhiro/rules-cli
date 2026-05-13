@@ -26,6 +26,7 @@
 
 ## ✨ 特性
 
+- 🖥️ **沉浸式图形化 Web UI**：内置基于现代化 Vue 3 SFC 与 Tailwind CSS 构筑的 Web 控制台 (`rules ui`)，支持零配置服务拉起与系统默认浏览器自启交互管理。
 - 🚀 **一键创建与应用**：快速创建规则模板，并应用到指定 AI 助手。
 - 📦 **多助手适配**：支持目录型规则和单文件注入型规则两种模式。
 - 🔗 **智能共享**：目录型助手默认使用符号链接（Symlink），一份规则多处共享。
@@ -137,10 +138,25 @@ rules rm -i
 rules rm -i --store --global
 ```
 
+### 8. 图形化 Web UI 沉浸式管理控制台
+
+通过单条终端指令即可拉起全链条组件化架构的现代化控制台，并在默认浏览器中实现自启：
+
+```bash
+rules ui
+rules ui --port 8080
+```
+
+- **全域 Store 融合接驳**：同屏呈现全局与当前项目独立规则空间。
+- **作用域双向链路同步下发**：支持将跨域单据一键绑定挂载至指定助手通道的项目或全局环境。
+- **高保真即时落盘源码编辑器**：支持在线实时修改 `rule.md` 主体结构及 Frontmatter 并自动回写磁盘。
+- **映射嗅探与一键解绑**：直观展示已生效的软链接与注入配置，提供交互式断链卸载支持。
+
 ## 🛠️ 指令一览
 
 | 指令 | 别名 | 描述 | 常用选项 |
 | :--- | :--- | :--- | :--- |
+| `ui` | - | 启动沉浸式 Web 图形化管理控制台服务 | `--port <number>`: 指定本地服务监听端口 |
 | `search [keyword]` | `s` | 搜索本地、GitHub 远程源或 cursor.directory 规则 | `-r, --remote`: 搜索远程源<br>`-c, --cursor`: 搜索 cursor.directory |
 | `install [name]` | `i` | 从远程源下载规则到本地 store，并进入应用流程 | `-s, --source <repo>`: 指定 GitHub 仓库或 cursor.directory<br>`-c, --cursor`: 从 cursor.directory 下载<br>`-g, --global`: 下载到全局 store<br>`-p, --project`: 下载到项目 store<br>`-f, --force`: 覆盖已存在规则 |
 | `apply [name]` | `a` | 将 store 中的规则应用到 AI 助手 | `-a, --agent <agents>`: 指定目标助手<br>`-g, --global`: 应用到全局目录<br>`-p, --project`: 应用到项目目录<br>`-f, --force`: 强制覆盖 |
