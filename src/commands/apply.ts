@@ -31,7 +31,7 @@ export async function applyCommand(name: string | undefined, options: ApplyOptio
   let selectedRules: RuleInfo[]
 
   if (name) {
-    const rule = getRuleByName(name, { cwd, global: isGlobal })
+    const rule = getRuleByName(name, { cwd })
     if (!rule) {
       consola.error(`规则 "${name}" 不存在`)
       return
@@ -39,7 +39,7 @@ export async function applyCommand(name: string | undefined, options: ApplyOptio
     selectedRules = [rule]
   }
   else {
-    const allRules = scanStoreRules({ cwd, global: isGlobal })
+    const allRules = scanStoreRules({ cwd })
     if (allRules.length === 0) {
       consola.info('没有找到任何规则')
       consola.info(`运行 ${pc.cyan('rules create <name>')} 创建一条新规则`)
@@ -62,7 +62,7 @@ export async function applyCommand(name: string | undefined, options: ApplyOptio
     }
 
     selectedRules = (selected as string[])
-      .map(n => getRuleByName(n, { cwd, global: isGlobal }))
+      .map(n => getRuleByName(n, { cwd }))
       .filter((r): r is RuleInfo => r !== undefined)
   }
 
@@ -74,7 +74,7 @@ export async function applyRulesByNames(ruleNames: string[], options: ApplyOptio
   const isGlobal = resolveIsGlobal(options)
   const config = loadConfig(cwd)
   const selectedRules = ruleNames
-    .map(name => getRuleByName(name, { cwd, global: isGlobal }))
+    .map(name => getRuleByName(name, { cwd }))
     .filter((r): r is RuleInfo => r !== undefined)
 
   if (selectedRules.length === 0) {

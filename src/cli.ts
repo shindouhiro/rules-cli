@@ -10,6 +10,7 @@ import { installCommand } from '~/commands/install'
 import { listCommand } from '~/commands/list'
 import { removeCommand } from '~/commands/remove'
 import { searchCommand } from '~/commands/search'
+import { uiCommand } from '~/commands/ui'
 import { printDivider } from '~/core/ui'
 import { version } from '../package.json'
 
@@ -23,6 +24,7 @@ const COMMAND_HELP = [
   ['create <name>', '创建新规则模板', '-g, --global  -p, --project'],
   ['install [name]', '从远程源下载规则', '-s, --source  -c, --cursor  -g, --global  -p, --project  -f, --force'],
   ['init', '初始化配置和存储目录', '-g, --global  -p, --project'],
+  ['ui', '启动 Web 图形化操作控制台', '-p, --port'],
 ] as const
 
 function isHelpOption(options: { help?: boolean }): boolean {
@@ -149,6 +151,17 @@ cli
       return
     showBanner()
     await initCommand(options)
+  })
+
+// === ui ===
+cli
+  .command('ui', '启动 Web 图形化操作控制台')
+  .option('-p, --port <port>', '指定本地 Web 服务监听端口 (默认: 3000)')
+  .action(async (options: { port?: number, help?: boolean }) => {
+    if (isHelpOption(options))
+      return
+    showBanner()
+    await uiCommand(options)
   })
 
 // === Global options ===

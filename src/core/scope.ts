@@ -8,7 +8,7 @@ export function resolveIsGlobal(options: ScopeOptions): boolean {
     throw new Error('不能同时指定 --global 和 --project')
   }
 
-  if (options.project)
+  if (options.project || options.global === false)
     return false
   if (options.global)
     return true
