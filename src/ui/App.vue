@@ -66,8 +66,19 @@ async function handleApply(ruleNames: string[], agentIds: string[], isGlobal: bo
   }
 }
 
-async function handleApplyRuleFromModal(rule: any, agentIds: string[], isGlobal: boolean) {
+async function handleApplyRuleFromModal(rule: any, agentIds: string[], isGlobal: boolean, content: string, references: Array<{ sourcePath: string, content: string }> = []) {
   try {
+    const saveRes = await fetch('/api/update-store-rule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: rule.path, content, references }),
+    })
+    const saveJson = await saveRes.json()
+    if (!saveJson.success) {
+      showToast(saveJson.message || '保存引用配置失败', 'error')
+      return
+    }
+
     const res = await fetch('/api/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -230,48 +241,48 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-950 text-slate-200">
+  <div class="min-h-screen bg-slate-950/70 text-slate-200">
     <!-- 通知 Toast -->
-    <div v-if="toast.show" class="fixed top-6 left-1/2 -translate-x-1/2 z-[60] transition flex items-center space-x-2 px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md border" :class="toast.type === 'success' ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200' : 'bg-rose-950/90 border-rose-500/30 text-rose-200'" aria-live="polite">
+    <div v-if="toast.show" class="fixed top-6 left-1/2 -translate-x-1/2 z-[60] transition flex items-center space-x-2 px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-md border" :class="toast.type === 'success' ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200' : 'bg-rose-950/90 border-rose-500/30 text-rose-200'" aria-live="polite">
       <span class="text-sm font-medium">{{ toast.message }}</span>
     </div>
 
-    <div class="grid min-h-screen grid-cols-1 lg:grid-cols-[260px_1fr]">
-      <aside class="border-b border-slate-800 bg-slate-950 lg:border-b-0 lg:border-r">
+    <div class="grid min-h-screen grid-cols-1 lg:grid-cols-[292px_1fr]">
+      <aside class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl lg:border-b-0 lg:border-r">
         <div class="flex h-full flex-col">
-          <div class="border-b border-slate-800 px-5 py-5">
+          <div class="border-b border-slate-800/80 px-6 py-6">
             <div class="flex items-center gap-3">
-              <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
+              <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-cyan-400 text-base font-black text-white shadow-lg shadow-brand-500/25">
                 R
               </div>
               <div>
-                <h1 class="text-sm font-semibold text-white">
+                <h1 class="text-lg font-semibold tracking-tight text-white">
                   Rules CLI
                 </h1>
-                <p class="text-[11px] text-slate-500">
+                <p class="text-sm text-slate-400">
                   引用式规则后台
                 </p>
               </div>
             </div>
           </div>
 
-          <nav class="grid gap-1 p-3">
-            <button class="flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors" :class="currentTab === 'store' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'store'">
+          <nav class="grid gap-2 p-4">
+            <button class="flex items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'store' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'store'">
               <span>本地规则库</span>
-              <span class="font-mono tabular-nums text-[10px] text-slate-500">{{ rules.length }}</span>
+              <span class="font-mono tabular-nums text-xs text-slate-500">{{ rules.length }}</span>
             </button>
-            <button class="flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors" :class="currentTab === 'applied' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'applied'">
+            <button class="flex items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'applied' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'applied'">
               <span>生效映射</span>
-              <span class="font-mono tabular-nums text-[10px] text-slate-500">{{ applied.length }}</span>
+              <span class="font-mono tabular-nums text-xs text-slate-500">{{ applied.length }}</span>
             </button>
-            <button class="flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors" :class="currentTab === 'remote' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'remote'">
+            <button class="flex items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'remote' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'remote'">
               <span>远程与新建</span>
-              <span class="font-mono tabular-nums text-[10px] text-slate-500">+</span>
+              <span class="font-mono tabular-nums text-xs text-slate-500">+</span>
             </button>
           </nav>
 
-          <div class="mt-auto border-t border-slate-800 p-3">
-            <button class="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-400 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" @click="fetchData">
+          <div class="mt-auto border-t border-slate-800/80 p-4">
+            <button class="w-full rounded-xl border border-slate-800 bg-slate-900/90 px-4 py-3 text-sm font-medium text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" @click="fetchData">
               重新载入发现
             </button>
           </div>
@@ -279,18 +290,18 @@ onMounted(() => {
       </aside>
 
       <main class="min-w-0 overflow-y-auto">
-        <header class="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 px-6 py-4 backdrop-blur">
-          <div class="flex flex-col gap-1">
-            <h2 class="text-base font-semibold text-white">
+        <header class="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/75 px-6 py-5 backdrop-blur-xl sm:px-8">
+          <div class="flex flex-col gap-1.5">
+            <h2 class="text-2xl font-semibold tracking-tight text-white">
               {{ currentTab === 'store' ? '本地规则库' : currentTab === 'applied' ? '生效映射' : '远程与新建' }}
             </h2>
-            <p class="text-xs text-slate-500">
+            <p class="text-sm text-slate-400">
               默认以引用文件树同步规则，可在编辑面板调整 referencesDir。
             </p>
           </div>
         </header>
 
-        <section class="p-4 sm:p-6">
+        <section class="p-5 sm:p-8">
           <StoreView v-if="currentTab === 'store'" :rules="rules" :agents="agents" :loading="loading" @apply="handleApply" @edit="handleOpenEdit" @delete="handleDeleteStoreRule" />
 
           <AppliedView v-if="currentTab === 'applied'" :applied="applied" :loading="loading" @remove="handleRemoveApplied" />

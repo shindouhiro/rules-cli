@@ -107,7 +107,7 @@ function handleCreate() {
         </button>
       </div>
 
-      <p v-if="canSearchSources && searchState.searched && !searchState.hasConfiguredSources" class="mt-3 text-[11px] text-amber-300/90">
+      <p v-if="canSearchSources && searchState.searched && !searchState.hasConfiguredSources" class="mt-3 text-xs text-amber-300/90">
         未检测到 .rulesrc sources 配置，本次仅会返回 cursor.directory 结果。
       </p>
       <p v-if="searchState.error" class="mt-3 text-xs text-rose-300">
@@ -122,13 +122,13 @@ function handleCreate() {
                 <h4 class="font-mono text-sm font-semibold text-white">
                   {{ rule.name }}
                 </h4>
-                <span class="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400">{{ rule.source }}</span>
+                <span class="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-400">{{ rule.source }}</span>
               </div>
               <p v-if="rule.meta?.name || rule.meta?.description" class="mt-2 text-xs leading-relaxed text-slate-400">
                 {{ rule.meta?.description || rule.meta?.name }}
               </p>
               <div v-if="rule.meta?.tags?.length" class="mt-3 flex flex-wrap gap-1.5">
-                <span v-for="tag in rule.meta.tags" :key="tag" class="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">{{ tag }}</span>
+                <span v-for="tag in rule.meta.tags" :key="tag" class="rounded-md bg-slate-800 px-1.5 py-0.5 text-xs text-slate-400">{{ tag }}</span>
               </div>
             </div>
             <button class="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300 transition hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900" @click="handleInstallSearchResult(rule)">

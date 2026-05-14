@@ -30,13 +30,13 @@ const emit = defineEmits<{
           <div class="min-w-0 flex-1">
             <div class="flex items-center space-x-2">
               <span class="font-medium text-xs text-slate-200">{{ item.name }}</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-cyan-400 font-mono">{{ item.agentName }}</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium" :class="item.scope === 'global' ? 'bg-purple-950 text-purple-300' : 'bg-slate-800 text-slate-400'">
+              <span class="text-xs px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-cyan-400 font-mono">{{ item.agentName }}</span>
+              <span class="text-xs px-1.5 py-0.5 rounded font-medium" :class="item.scope === 'global' ? 'bg-purple-950 text-purple-300' : 'bg-slate-800 text-slate-400'">
                 {{ item.scope === 'global' ? '全局层级' : '项目层级' }}
               </span>
-              <span class="text-[9px] text-slate-500 font-mono">{{ item.mode }}</span>
+              <span class="text-xs text-slate-500 font-mono">{{ item.mode }}</span>
             </div>
-            <p class="text-[11px] text-slate-500 truncate mt-1 font-mono" :title="item.path">
+            <p class="text-xs text-slate-500 truncate mt-1 font-mono" :title="item.path">
               {{ item.path }}
             </p>
           </div>

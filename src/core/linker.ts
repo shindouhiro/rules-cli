@@ -68,6 +68,7 @@ export function injectRuleToSingleFileAgent(
   options: { global: boolean, cwd: string, force?: boolean },
 ): { targetPath: string, success: boolean, error?: string } {
   const targetFile = resolveAgentPath(agent, options)
+  const ruleForApply = toSingleFileReferenceRule(rule)
 
   const markerStart = agent.injectMarkerStart || '<!-- rules-cli:start -->'
   const markerEnd = agent.injectMarkerEnd || '<!-- rules-cli:end -->'
@@ -80,7 +81,7 @@ export function injectRuleToSingleFileAgent(
       existing = readFileSync(targetFile, 'utf-8')
     }
 
-    const ruleBlock = createRuleBlock(rule.name, rule.content)
+    const ruleBlock = createRuleBlock(ruleForApply.name, ruleForApply.content)
     const fullBlock = [markerStart, ruleBlock, markerEnd].join('\n')
 
     let newContent: string
@@ -93,7 +94,7 @@ export function injectRuleToSingleFileAgent(
     if (markerRegex.test(existing)) {
       // 已有标记区间 → 在区间内追加或替换
       const ruleRegex = new RegExp(
-        `<!-- rule: ${escapeRegex(rule.name)} -->[\\s\\S]*?<!-- /rule: ${escapeRegex(rule.name)} -->`,
+        `<!-- rule: ${escapeRegex(ruleForApply.name)} -->[\\s\\S]*?<!-- /rule: ${escapeRegex(ruleForApply.name)} -->`,
       )
 
       if (ruleRegex.test(existing)) {
@@ -117,7 +118,7 @@ export function injectRuleToSingleFileAgent(
     }
 
     writeFileSync(targetFile, newContent, 'utf-8')
-    applyRuleReferences(rule, dirname(targetFile))
+    applyRuleReferences(ruleForApply, dirname(targetFile))
     return { targetPath: targetFile, success: true }
   }
   catch (err) {
@@ -141,7 +142,7 @@ export function removeRuleFromSingleFileAgent(
 
   if (!existsSync(targetFile)) {
     if (options.rule && options.forceReferences) {
-      removeRuleReferences(options.rule, dirname(targetFile), { force: true })
+      removeRuleReferences(toSingleFileReferenceRule(options.rule), dirname(targetFile), { force: true })
       return { success: true }
     }
     return { success: false, error: '目标文件不存在' }
@@ -156,7 +157,7 @@ export function removeRuleFromSingleFileAgent(
 
     if (!ruleRegex.test(content)) {
       if (options.rule && options.forceReferences) {
-        removeRuleReferences(options.rule, dirname(targetFile), { force: true })
+        removeRuleReferences(toSingleFileReferenceRule(options.rule), dirname(targetFile), { force: true })
         return { success: true }
       }
       return { success: false, error: '规则未找到' }
@@ -174,11 +175,27 @@ export function removeRuleFromSingleFileAgent(
 
     writeFileSync(targetFile, content.trim() ? `${content.trim()}\n` : '', 'utf-8')
     if (options.rule)
-      removeRuleReferences(options.rule, dirname(targetFile), { force: options.forceReferences })
+      removeRuleReferences(toSingleFileReferenceRule(options.rule), dirname(targetFile), { force: options.forceReferences })
     return { success: true }
   }
   catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+function toSingleFileReferenceRule(rule: RuleInfo): RuleInfo {
+  if (rule.references?.length)
+    return rule
+
+  const targetPath = `docs/${rule.name}.md`
+  return {
+    ...rule,
+    content: `# ${rule.name}\n\n- [${rule.name}.md](./${targetPath})`,
+    references: [{
+      targetPath,
+      title: `${rule.name}.md`,
+      content: rule.content,
+    }],
   }
 }
 

@@ -51,7 +51,9 @@ export interface RuleReference {
  */
 export interface ResolvedRuleReference {
   /** store 中的源文件绝对路径 */
-  sourcePath: string
+  sourcePath?: string
+  /** 内联生成的引用文件内容 */
+  content?: string
   /** 应用到目标目录时使用的相对路径 */
   targetPath: string
   /** 地图入口展示标题 */

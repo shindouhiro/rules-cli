@@ -142,8 +142,10 @@ function getEnrichedStoreRules(cwd: string) {
     const references = (r.references ?? []).map((reference) => {
       let rawContent = ''
       try {
-        if (existsSync(reference.sourcePath))
+        if (reference.sourcePath && existsSync(reference.sourcePath))
           rawContent = readFileSync(reference.sourcePath, 'utf-8')
+        else if (reference.content)
+          rawContent = reference.content
       }
       catch {}
       return {
@@ -166,11 +168,13 @@ function createReferenceRuleContent(
   ruleName: string,
   content: string,
   ruleDir: string,
-  references: Array<{ sourcePath: string, title?: string }>,
+  references: Array<{ sourcePath?: string, targetPath: string, title?: string }>,
 ): string {
   const referenceLines = references
     .map((reference) => {
-      const sourceRelativePath = relative(ruleDir, reference.sourcePath).split(sep).join('/')
+      const sourceRelativePath = reference.sourcePath
+        ? relative(ruleDir, reference.sourcePath).split(sep).join('/')
+        : reference.targetPath
       return [
         `  - path: ${sourceRelativePath}`,
         `    title: ${reference.title || sourceRelativePath}`,

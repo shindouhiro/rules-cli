@@ -11,7 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'save', path: string, content: string, references: Array<{ sourcePath: string, content: string }>): void
-  (e: 'apply', rule: any, agentIds: string[], isGlobal: boolean): void
+  (e: 'apply', rule: any, agentIds: string[], isGlobal: boolean, content: string, references: Array<{ sourcePath: string, content: string }>): void
 }>()
 
 const content = ref('')
@@ -74,7 +74,14 @@ function toggleAgent(id: string) {
 function emitApply() {
   if (!props.rule || selectedAgents.value.length === 0)
     return
-  emit('apply', props.rule, selectedAgents.value, applyScopeGlobal.value)
+  emit('apply', props.rule, selectedAgents.value, applyScopeGlobal.value, withReferencesDir(content.value, referencesDir.value), getReferencePayload())
+}
+
+function getReferencePayload(): Array<{ sourcePath: string, content: string }> {
+  return (props.rule.references || []).map((reference: any) => ({
+    sourcePath: reference.sourcePath,
+    content: referenceContents.value[reference.sourcePath] || '',
+  }))
 }
 
 function handleSave() {
@@ -85,10 +92,7 @@ function handleSave() {
     'save',
     props.rule.path,
     withReferencesDir(content.value, referencesDir.value),
-    (props.rule.references || []).map((reference: any) => ({
-      sourcePath: reference.sourcePath,
-      content: referenceContents.value[reference.sourcePath] || '',
-    })),
+    getReferencePayload(),
   )
   setTimeout(() => {
     saving.value = false
@@ -121,7 +125,7 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
           <h3 class="text-sm font-semibold text-slate-200 truncate">
             实时在线编辑源码: <span class="text-white font-mono">{{ rule?.name }}</span>
           </h3>
-          <span class="text-[10px] bg-slate-950 px-2 py-0.5 rounded text-slate-400 border border-slate-800 truncate" :title="rule?.path">
+          <span class="text-xs bg-slate-950 px-2 py-0.5 rounded text-slate-400 border border-slate-800 truncate" :title="rule?.path">
             {{ rule?.path }}
           </span>
         </div>
@@ -133,31 +137,31 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
         <aside class="rounded-xl border border-slate-800 bg-slate-900/80 p-2 overflow-y-auto">
           <button class="w-full text-left rounded-lg px-3 py-2 text-xs transition-colors" :class="activeFile === 'rule.md' ? 'bg-brand-500/20 text-brand-200' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'" @click="activeFile = 'rule.md'">
             <span class="block font-semibold">入口文件</span>
-            <span class="block truncate font-mono text-[10px] opacity-70">rule.md</span>
+            <span class="block truncate font-mono text-xs opacity-70">rule.md</span>
           </button>
           <div v-if="rule?.references?.length" class="mt-3 border-t border-slate-800 pt-3">
-            <p class="px-3 pb-2 text-[10px] font-semibold text-cyan-300">
+            <p class="px-3 pb-2 text-xs font-semibold text-cyan-300">
               引用文件
             </p>
             <button v-for="reference in rule.references" :key="reference.sourcePath" class="mb-1 w-full text-left rounded-lg px-3 py-2 text-xs transition-colors" :class="activeFile === reference.sourcePath ? 'bg-cyan-500/20 text-cyan-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'" @click="activeFile = reference.sourcePath">
               <span class="block truncate">{{ reference.title || reference.targetPath }}</span>
-              <span class="block truncate font-mono text-[10px] opacity-70">{{ reference.targetPath }}</span>
+              <span class="block truncate font-mono text-xs opacity-70">{{ reference.targetPath }}</span>
             </button>
           </div>
-          <p v-else class="mt-3 border-t border-slate-800 px-3 pt-3 text-[10px] text-slate-500">
+          <p v-else class="mt-3 border-t border-slate-800 px-3 pt-3 text-xs text-slate-500">
             当前规则未声明引用文件。
           </p>
         </aside>
         <section class="flex min-h-0 flex-col overflow-hidden">
           <div class="mb-2 flex items-center justify-between gap-3">
-            <p class="truncate text-[11px] text-slate-400">
+            <p class="truncate text-xs text-slate-400">
               {{ activeFile === 'rule.md' ? '修改入口地图与 frontmatter' : '修改引用文件源码' }}
             </p>
-            <span v-if="rule?.meta?.referencesDir" class="shrink-0 rounded border border-cyan-500/20 bg-cyan-500/5 px-2 py-0.5 font-mono text-[10px] text-cyan-300">
+            <span v-if="rule?.meta?.referencesDir" class="shrink-0 rounded border border-cyan-500/20 bg-cyan-500/5 px-2 py-0.5 font-mono text-xs text-cyan-300">
               referencesDir: {{ rule.meta.referencesDir }}
             </span>
           </div>
-          <label class="mb-2 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-[11px] text-slate-400">
+          <label class="mb-2 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs text-slate-400">
             <span class="shrink-0">引用目录</span>
             <input v-model="referencesDir" name="references-dir" autocomplete="off" spellcheck="false" class="min-w-0 flex-1 bg-transparent font-mono text-cyan-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded" placeholder="docs">
           </label>
@@ -169,7 +173,7 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
           <div class="flex flex-col gap-2.5">
             <div class="flex items-center gap-1.5 px-1">
               <Icon icon="ph:robot-duotone" class="text-brand-400 text-sm" />
-              <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">目标智能体 (Agents)</span>
+              <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">目标智能体 (Agents)</span>
             </div>
             <div class="flex flex-wrap items-center gap-1.5">
               <button v-for="agent in agents" :key="agent.id" class="rounded-lg border px-3 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" :class="selectedAgents.includes(agent.id) ? 'border-brand-500 bg-brand-500/10 text-brand-300 shadow-sm shadow-brand-500/10' : 'border-slate-800 bg-slate-900 text-slate-500 hover:text-slate-300 hover:bg-slate-800'" @click="toggleAgent(agent.id)">
@@ -180,7 +184,7 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
 
           <div class="flex items-end gap-3 shrink-0">
             <div class="flex flex-col gap-2">
-              <span class="text-[10px] font-medium text-slate-500 uppercase tracking-wider px-1">作用域级别</span>
+              <span class="text-xs font-medium text-slate-500 uppercase tracking-wider px-1">作用域级别</span>
               <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
                 <button class="rounded-lg px-3 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 font-medium" :class="!applyScopeGlobal ? 'bg-slate-800 text-brand-400 shadow-sm' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'" @click="applyScopeGlobal = false">
                   项目级

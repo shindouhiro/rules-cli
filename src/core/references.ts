@@ -1,5 +1,5 @@
 import type { ResolvedRuleReference, RuleReference } from '~/types'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
 
 export function isUnsafeReferencePath(path: string): boolean {
@@ -86,7 +86,9 @@ export function applyRuleReferences(rule: { references?: ResolvedRuleReference[]
     assertSafeReferencePath(reference.targetPath)
     const targetPath = join(targetRoot, reference.targetPath)
     mkdirSync(dirname(targetPath), { recursive: true })
-    copyFileSync(reference.sourcePath, targetPath)
+    if (reference.sourcePath)
+      copyFileSync(reference.sourcePath, targetPath)
+    else writeFileSync(targetPath, ensureTrailingNewline(reference.content || ''), 'utf-8')
   }
 }
 
@@ -98,11 +100,13 @@ export function removeRuleReferences(rule: { references?: ResolvedRuleReference[
       continue
 
     if (!options.force) {
-      if (!existsSync(reference.sourcePath))
+      if (reference.sourcePath && !existsSync(reference.sourcePath))
         continue
 
       const targetContent = readFileSync(targetPath, 'utf-8')
-      const sourceContent = readFileSync(reference.sourcePath, 'utf-8')
+      const sourceContent = reference.sourcePath
+        ? readFileSync(reference.sourcePath, 'utf-8')
+        : ensureTrailingNewline(reference.content || '')
       if (targetContent !== sourceContent)
         continue
     }
@@ -110,6 +114,10 @@ export function removeRuleReferences(rule: { references?: ResolvedRuleReference[
     rmSync(targetPath, { force: true })
     pruneEmptyParents(dirname(targetPath), targetRoot)
   }
+}
+
+function ensureTrailingNewline(content: string): string {
+  return content.endsWith('\n') ? content : `${content}\n`
 }
 
 function stripYamlQuote(value: string): string {

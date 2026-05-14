@@ -196,7 +196,7 @@ describe('linker', () => {
   })
 
   describe('injectRuleToSingleFileAgent', () => {
-    it('在空文件/新文件中注入', () => {
+    it('在空文件/新文件中以 docs 引用方式注入', () => {
       const cwd = makeTmpDir('inject-test-1')
       const rule = createMockRule('use-chinese', '所有回复使用中文')
 
@@ -210,9 +210,11 @@ describe('linker', () => {
       const content = readFileSync(result.targetPath, 'utf-8')
       expect(content).toContain('<!-- rules-cli:start -->')
       expect(content).toContain('<!-- rule: use-chinese -->')
-      expect(content).toContain('所有回复使用中文')
+      expect(content).toContain('[use-chinese.md](./docs/use-chinese.md)')
+      expect(content).not.toContain('所有回复使用中文')
       expect(content).toContain('<!-- /rule: use-chinese -->')
       expect(content).toContain('<!-- rules-cli:end -->')
+      expect(readFileSync(join(cwd, 'docs', 'use-chinese.md'), 'utf-8')).toBe('所有回复使用中文\n')
     })
 
     it('在已有内容的文件中追加', () => {
@@ -231,7 +233,9 @@ describe('linker', () => {
       const content = readFileSync(targetFile, 'utf-8')
       expect(content).toContain('# 已有内容')
       expect(content).toContain('这是原始文件')
-      expect(content).toContain('使用 pnpm 作为包管理器')
+      expect(content).toContain('[pnpm-rule.md](./docs/pnpm-rule.md)')
+      expect(content).not.toContain('使用 pnpm 作为包管理器')
+      expect(readFileSync(join(cwd, 'docs', 'pnpm-rule.md'), 'utf-8')).toBe('使用 pnpm 作为包管理器\n')
     })
 
     it('在已有标记区间的文件中追加新规则', () => {
@@ -248,9 +252,11 @@ describe('linker', () => {
 
       const content = readFileSync(targetFile, 'utf-8')
       expect(content).toContain('<!-- rule: rule-1 -->')
-      expect(content).toContain('第一条规则')
+      expect(content).toContain('[rule-1.md](./docs/rule-1.md)')
       expect(content).toContain('<!-- rule: rule-2 -->')
-      expect(content).toContain('第二条规则')
+      expect(content).toContain('[rule-2.md](./docs/rule-2.md)')
+      expect(readFileSync(join(cwd, 'docs', 'rule-1.md'), 'utf-8')).toBe('第一条规则\n')
+      expect(readFileSync(join(cwd, 'docs', 'rule-2.md'), 'utf-8')).toBe('第二条规则\n')
     })
 
     it('重复注入不 force 应失败', () => {
@@ -285,7 +291,8 @@ describe('linker', () => {
       expect(result.success).toBe(true)
 
       const content = readFileSync(targetFile, 'utf-8')
-      expect(content).toContain('新内容')
+      expect(content).toContain('[update-rule.md](./docs/update-rule.md)')
+      expect(readFileSync(join(cwd, 'docs', 'update-rule.md'), 'utf-8')).toBe('新内容\n')
       expect(content).not.toContain('旧内容')
     })
 
@@ -314,11 +321,13 @@ describe('linker', () => {
       const rule = createMockRule('to-remove', '待删除')
 
       injectRuleToSingleFileAgent(rule, mockSingleFileAgent, { global: false, cwd })
-      expect(readFileSync(targetFile, 'utf-8')).toContain('待删除')
+      expect(readFileSync(targetFile, 'utf-8')).toContain('[to-remove.md](./docs/to-remove.md)')
+      expect(readFileSync(join(cwd, 'docs', 'to-remove.md'), 'utf-8')).toBe('待删除\n')
 
       const result = removeRuleFromSingleFileAgent('to-remove', mockSingleFileAgent, {
         global: false,
         cwd,
+        rule,
       })
 
       expect(result.success).toBe(true)
@@ -326,6 +335,7 @@ describe('linker', () => {
       const content = readFileSync(targetFile, 'utf-8')
       expect(content).not.toContain('待删除')
       expect(content).not.toContain('<!-- rule: to-remove -->')
+      expect(existsSync(join(cwd, 'docs', 'to-remove.md'))).toBe(false)
     })
 
     it('文件不存在时返回失败', () => {
@@ -381,12 +391,18 @@ describe('linker', () => {
         { global: false, cwd },
       )
 
-      removeRuleFromSingleFileAgent('rule-a', mockSingleFileAgent, { global: false, cwd })
+      removeRuleFromSingleFileAgent('rule-a', mockSingleFileAgent, {
+        global: false,
+        cwd,
+        rule: createMockRule('rule-a', '规则A'),
+      })
 
       const content = readFileSync(targetFile, 'utf-8')
       expect(content).not.toContain('规则A')
-      expect(content).toContain('规则B')
+      expect(content).toContain('[rule-b.md](./docs/rule-b.md)')
       expect(content).toContain('<!-- rules-cli:start -->')
+      expect(existsSync(join(cwd, 'docs', 'rule-a.md'))).toBe(false)
+      expect(readFileSync(join(cwd, 'docs', 'rule-b.md'), 'utf-8')).toBe('规则B\n')
     })
 
     it('可按显式 targetPath 移除规则', () => {
