@@ -1,7 +1,7 @@
 {
   "name": "@shindou/rules-cli",
   "type": "module",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "packageManager": "pnpm@10.33.0",
   "description": "Manage and sync AI Agent rules across 30+ coding assistants via symlink",
   "author": "hikaru",
