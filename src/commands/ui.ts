@@ -1,9 +1,10 @@
 import type { ServerResponse } from 'node:http'
+import type { RuleInfo } from '~/types'
 import { Buffer } from 'node:buffer'
 import { exec } from 'node:child_process'
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { dirname, extname, join, normalize, sep } from 'node:path'
+import { dirname, extname, join, normalize, relative, sep } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import consola from 'consola'
@@ -12,10 +13,9 @@ import { applyRulesByNames } from '~/commands/apply'
 import { createCommand } from '~/commands/create'
 import { AGENTS, resolveAgentPath } from '~/core/agents'
 import { downloadCursorDirectoryRule } from '~/core/cursor-directory'
-import { removeRuleFromSingleFileAgent } from '~/core/linker'
+import { removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
 import { downloadRule } from '~/core/remote'
-import { scanStoreRules } from '~/core/scanner'
-import { getGlobalStoreDir } from '~/core/store'
+import { getRuleByName, scanStoreRuleEntries } from '~/core/scanner'
 import { printSection } from '~/core/ui'
 
 export interface UiOptions {
@@ -127,10 +127,9 @@ function getAppliedRules(cwd: string) {
   return result
 }
 
-// 丰富本地规则对象，携带完整文件物理路径、作用域标识与原始内容以便前端进行无缝编辑
+// 丰富本地规则对象，携带完整文件物理路径、引用文件与原始内容以便前端进行无缝编辑
 function getEnrichedStoreRules(cwd: string) {
-  const rules = scanStoreRules({ cwd })
-  const globalStoreDir = getGlobalStoreDir()
+  const rules = scanStoreRuleEntries({ cwd })
   return rules.map((r) => {
     let rawContent = ''
     try {
@@ -139,13 +138,57 @@ function getEnrichedStoreRules(cwd: string) {
       }
     }
     catch {}
-    const isGlobal = r.path ? r.path.includes(globalStoreDir) : false
+    const references = (r.references ?? []).map((reference) => {
+      let rawContent = ''
+      try {
+        if (existsSync(reference.sourcePath))
+          rawContent = readFileSync(reference.sourcePath, 'utf-8')
+      }
+      catch {}
+      return {
+        ...reference,
+        rawContent,
+      }
+    })
+    const editableContent = r.references?.length && !r.meta?.references
+      ? createReferenceRuleContent(r.name, r.content, dirname(r.path), r.references)
+      : rawContent
     return {
       ...r,
-      rawContent,
-      isGlobal,
+      rawContent: editableContent,
+      references,
     }
   })
+}
+
+function createReferenceRuleContent(
+  ruleName: string,
+  content: string,
+  ruleDir: string,
+  references: Array<{ sourcePath: string, title?: string }>,
+): string {
+  const referenceLines = references
+    .map((reference) => {
+      const sourceRelativePath = relative(ruleDir, reference.sourcePath).split(sep).join('/')
+      return [
+        `  - path: ${sourceRelativePath}`,
+        `    title: ${reference.title || sourceRelativePath}`,
+      ].join('\n')
+    })
+    .join('\n')
+
+  return [
+    '---',
+    `name: ${ruleName}`,
+    'description: 引用式规则入口',
+    'referencesDir: docs',
+    'references:',
+    referenceLines,
+    '---',
+    '',
+    content,
+    '',
+  ].join('\n')
 }
 
 export async function uiCommand(options: UiOptions): Promise<void> {
@@ -191,12 +234,13 @@ export async function uiCommand(options: UiOptions): Promise<void> {
 
         if (req.method === 'POST' && pathname === '/api/apply') {
           const body = await getBody()
-          const { ruleNames, agents, global, force } = body
+          const { ruleNames, rulePaths, agents, global, force } = body
           await applyRulesByNames(ruleNames, {
             agent: agents && agents.length > 0 ? agents.join(',') : undefined,
             global: !!global,
             project: !global,
             force: force !== false,
+            rulePaths: Array.isArray(rulePaths) ? rulePaths : undefined,
           })
           return jsonResponse({ success: true, message: '分发同步执行完成' })
         }
@@ -211,13 +255,16 @@ export async function uiCommand(options: UiOptions): Promise<void> {
             return jsonResponse({ success: false, message: '未找到对应智能体通道配置' })
           }
 
+          const rule = getRuleByName(name, { cwd, global: isGlobal }) || getRuleByName(name, { cwd })
+
           if (type === 'directory') {
-            if (existsSync(path)) {
+            if (rule)
+              removeRuleReferencesFromDirectoryAgent(rule, agent, { global: isGlobal, cwd, forceReferences: true })
+            if (existsSync(path))
               unlinkSync(path)
-            }
           }
           else {
-            const result = removeRuleFromSingleFileAgent(name, agent, { global: isGlobal, cwd })
+            const result = removeRuleFromSingleFileAgent(name, agent, { global: isGlobal, cwd, rule, targetPath: path, forceReferences: true })
             if (!result.success) {
               return jsonResponse({ success: false, message: result.error || '卸载执行失败' })
             }
@@ -228,11 +275,18 @@ export async function uiCommand(options: UiOptions): Promise<void> {
         // 高级特性：持久化更新写入本地 rule.md
         if (req.method === 'POST' && pathname === '/api/update-store-rule') {
           const body = await getBody()
-          const { path, content } = body
+          const { path, content, references } = body
           if (!path || !existsSync(path)) {
             return jsonResponse({ success: false, message: '目标模板文件路径无效或不存在' })
           }
           writeFileSync(path, content || '', 'utf-8')
+          if (Array.isArray(references)) {
+            for (const reference of references) {
+              if (!reference?.sourcePath || !existsSync(reference.sourcePath))
+                continue
+              writeFileSync(reference.sourcePath, reference.content || '', 'utf-8')
+            }
+          }
           return jsonResponse({ success: true, message: '源码更新回写磁盘完毕' })
         }
 
@@ -244,14 +298,17 @@ export async function uiCommand(options: UiOptions): Promise<void> {
             return jsonResponse({ success: false, message: '无法定位待销毁源文件目录' })
           }
           const ruleFolder = dirname(path)
+          const rule = scanStoreRuleEntries({ cwd }).find(item => item.path === path)
+          if (rule)
+            removeAppliedRuleForStore(rule, cwd)
           rmSync(ruleFolder, { recursive: true, force: true })
           return jsonResponse({ success: true, message: '规则库模板从磁盘彻底移除' })
         }
 
         if (req.method === 'POST' && pathname === '/api/create') {
           const body = await getBody()
-          const { name, global } = body
-          await createCommand(name, { global: !!global })
+          const { name, global, referencesDir } = body
+          await createCommand(name, { global: !!global, referencesDir: referencesDir || 'docs' })
           return jsonResponse({ success: true, message: `规则基础结构建立成功` })
         }
 
@@ -320,4 +377,31 @@ export async function uiCommand(options: UiOptions): Promise<void> {
     consola.info(`按 ${pc.yellow('Ctrl+C')} 停止服务退出。`)
     openBrowser(targetUrl)
   })
+}
+
+function removeAppliedRuleForStore(rule: RuleInfo & { scope: 'project' | 'global' }, cwd: string): void {
+  const isGlobal = rule.scope === 'global'
+
+  // 删除规则库模板前，按规则名和作用域主动清理所有 agent 的固定落点。
+  // 不能只依赖 getAppliedRules() 的扫描结果：目录型规则的引用文件位于
+  // `<agentRulesDir>/<ruleName>/...` 子目录，即使规则入口 symlink 已缺失，引用目录也需要被清掉。
+  for (const agent of AGENTS) {
+    if (agent.rulesType === 'directory') {
+      removeRuleReferencesFromDirectoryAgent(rule, agent, { global: isGlobal, cwd, forceReferences: true })
+
+      const baseDir = resolveAgentPath(agent, { global: isGlobal, cwd })
+      const ext = agent.fileExtension || '.md'
+      const targetPath = join(baseDir, `${rule.name}${ext}`)
+      if (existsSync(targetPath))
+        unlinkSync(targetPath)
+      continue
+    }
+
+    removeRuleFromSingleFileAgent(rule.name, agent, {
+      global: isGlobal,
+      cwd,
+      rule,
+      forceReferences: true,
+    })
+  }
 }

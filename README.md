@@ -230,11 +230,54 @@ rules ui --port 8080
 name: use-chinese
 description: 所有回复均须使用中文
 tags: [language, i18n]
+referencesDir: docs
+references: []
 ---
 
 所有回复、思考过程及任务清单，均须使用中文。
 ```
 
+### 地图式引用管理
+
+一条规则可以只把主规则文件作为入口地图，并把详细说明拆到同一规则目录下的引用文件中：
+
+```text
+.rules/store/agent-map/
+├── rule.md
+└── docs/
+    ├── architecture.md
+    ├── development.md
+    └── design-docs/
+        └── ref-cli.md
+```
+
+在 `rule.md` frontmatter 中声明引用文件：
+
+```md
+---
+name: agent-map
+description: AGENTS.md 地图入口
+tags: [agent]
+referencesDir: docs
+references:
+  - path: docs/architecture.md
+    title: 分层架构详细说明
+  - path: docs/development.md
+    title: 开发环境搭建
+  - path: docs/design-docs/ref-*.md
+    title: 参考项目架构说明
+---
+
+# AGENTS.md
+
+- [架构说明](./docs/architecture.md)
+- [开发环境](./docs/development.md)
+- [参考架构](./docs/design-docs/ref-cli.md)
+```
+
+执行 `rules apply agent-map --agent codex --project` 后，`AGENTS.md` 会写入入口地图，引用文件会同步到目标规则文件所在目录的相对路径下。移除规则时，rules-cli 只会删除内容仍与 store 源文件一致的引用文件；如果你手动改过目标文件，会保留它以避免误删。
+
+`referencesDir` 用于设置引用文件在目标项目中的统一落盘目录，默认值为 `docs`。设置为 `ai-rules` 等目录时，引用文件会写入对应目录下，地图链接也会指向该目录。如果源文件路径本身已经以 `docs/` 开头，切换目录时会去掉这层源目录前缀，例如 `docs/architecture.md` 会落到 `ai-rules/architecture.md`。
 
 ## 📄 开源协议
 

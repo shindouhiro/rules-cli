@@ -3,11 +3,11 @@ import { ref } from 'vue'
 
 const emit = defineEmits<{
   (e: 'install', name: string, source: string, isGlobal: boolean): void
-  (e: 'create', name: string, isGlobal: boolean): void
+  (e: 'create', name: string, isGlobal: boolean, referencesDir: string): void
 }>()
 
 const installForm = ref({ name: '', source: 'cursor.directory', repo: '', global: false })
-const createForm = ref({ name: '', global: false })
+const createForm = ref({ name: '', global: false, referencesDir: 'docs' })
 
 function handleInstall() {
   if (!installForm.value.name)
@@ -20,7 +20,7 @@ function handleInstall() {
 function handleCreate() {
   if (!createForm.value.name)
     return
-  emit('create', createForm.value.name, createForm.value.global)
+  emit('create', createForm.value.name, createForm.value.global, createForm.value.referencesDir || 'docs')
   createForm.value.name = ''
 }
 </script>
@@ -79,6 +79,10 @@ function handleCreate() {
         <div>
           <label class="block text-xs text-slate-400 mb-1">自定义规则名标识</label>
           <input v-model="createForm.name" type="text" placeholder="例如: my-project-spec" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">默认引用目录</label>
+          <input v-model="createForm.referencesDir" type="text" placeholder="docs" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono">
         </div>
         <div class="flex items-center space-x-4 pt-1">
           <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer">

@@ -2,7 +2,7 @@ import type { AgentRulesDef, RuleInfo } from '~/types'
 import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { injectRuleToSingleFileAgent, linkRuleToDirectoryAgent, removeRuleFromSingleFileAgent } from '~/core/linker'
+import { injectRuleToSingleFileAgent, linkRuleToDirectoryAgent, removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
 import { getGlobalStoreDir } from '~/core/store'
 
 // 使用项目内临时目录，测试后清理
@@ -31,6 +31,34 @@ function createMockRule(name: string, content: string): RuleInfo {
   }
 }
 
+function createMockRuleWithReferences(name: string, content: string): RuleInfo {
+  return {
+    name,
+    path: join(STORE_DIR, name, 'rule.md'),
+    meta: {
+      name,
+      description: `mock ${name}`,
+      references: [
+        { path: 'docs/architecture.md', title: '分层架构详细说明' },
+        { path: 'docs/design-docs/ref-*.md', title: '参考项目架构说明' },
+      ],
+    },
+    references: [
+      {
+        sourcePath: join(STORE_DIR, name, 'docs', 'architecture.md'),
+        targetPath: 'docs/architecture.md',
+        title: '分层架构详细说明',
+      },
+      {
+        sourcePath: join(STORE_DIR, name, 'docs', 'design-docs', 'ref-cli.md'),
+        targetPath: 'docs/design-docs/ref-cli.md',
+        title: '参考项目架构说明',
+      },
+    ],
+    content,
+  }
+}
+
 /**
  * 在真实 store 中创建规则源文件（linkRuleToDirectoryAgent 会读取它）
  */
@@ -45,6 +73,14 @@ function cleanStoreRule(name: string): void {
   if (existsSync(ruleDir)) {
     rmSync(ruleDir, { recursive: true, force: true })
   }
+}
+
+function createStoreRuleWithReferences(name: string): void {
+  const ruleDir = join(STORE_DIR, name)
+  mkdirSync(join(ruleDir, 'docs', 'design-docs'), { recursive: true })
+  writeFileSync(join(ruleDir, 'rule.md'), '# AGENTS.md\n\n- [架构说明](./docs/architecture.md)\n', 'utf-8')
+  writeFileSync(join(ruleDir, 'docs', 'architecture.md'), '# 架构说明\n', 'utf-8')
+  writeFileSync(join(ruleDir, 'docs', 'design-docs', 'ref-cli.md'), '# 参考架构\n', 'utf-8')
 }
 
 const mockDirectoryAgent: AgentRulesDef = {
@@ -141,6 +177,22 @@ describe('linker', () => {
       expect(result.success).toBe(true)
       expect(lstatSync(result.targetPath).isSymbolicLink()).toBe(true)
     })
+
+    it('目录型 agent 应用规则时同步引用文件树', () => {
+      const ruleName = `${TEST_RULE_PREFIX}rule1`
+      createStoreRuleWithReferences(ruleName)
+
+      const cwd = makeTmpDir('link-test-references')
+      const rule = createMockRuleWithReferences(ruleName, '# AGENTS.md')
+      const result = linkRuleToDirectoryAgent(rule, mockDirectoryAgent, {
+        global: false,
+        cwd,
+      })
+
+      expect(result.success).toBe(true)
+      expect(readFileSync(join(cwd, '.test-agent', 'rules', ruleName, 'docs', 'architecture.md'), 'utf-8')).toContain('架构说明')
+      expect(readFileSync(join(cwd, '.test-agent', 'rules', ruleName, 'docs', 'design-docs', 'ref-cli.md'), 'utf-8')).toContain('参考架构')
+    })
   })
 
   describe('injectRuleToSingleFileAgent', () => {
@@ -236,6 +288,23 @@ describe('linker', () => {
       expect(content).toContain('新内容')
       expect(content).not.toContain('旧内容')
     })
+
+    it('单文件型 agent 注入规则时同步引用文件树', () => {
+      const ruleName = `${TEST_RULE_PREFIX}rule2`
+      createStoreRuleWithReferences(ruleName)
+
+      const cwd = makeTmpDir('inject-test-references')
+      const rule = createMockRuleWithReferences(ruleName, '# AGENTS.md\n\n- [架构说明](./docs/architecture.md)')
+      const result = injectRuleToSingleFileAgent(rule, mockSingleFileAgent, {
+        global: false,
+        cwd,
+      })
+
+      expect(result.success).toBe(true)
+      expect(readFileSync(join(cwd, 'TEST-RULES.md'), 'utf-8')).toContain('[架构说明](./docs/architecture.md)')
+      expect(readFileSync(join(cwd, 'docs', 'architecture.md'), 'utf-8')).toContain('架构说明')
+      expect(readFileSync(join(cwd, 'docs', 'design-docs', 'ref-cli.md'), 'utf-8')).toContain('参考架构')
+    })
   })
 
   describe('removeRuleFromSingleFileAgent', () => {
@@ -318,6 +387,113 @@ describe('linker', () => {
       expect(content).not.toContain('规则A')
       expect(content).toContain('规则B')
       expect(content).toContain('<!-- rules-cli:start -->')
+    })
+
+    it('可按显式 targetPath 移除规则', () => {
+      const cwd = makeTmpDir('remove-test-target-path')
+      const targetFile = join(cwd, 'CUSTOM-RULES.md')
+      writeFileSync(targetFile, [
+        '<!-- rules-cli:start -->',
+        '<!-- rule: custom-path -->',
+        '自定义路径规则',
+        '<!-- /rule: custom-path -->',
+        '<!-- rules-cli:end -->',
+        '',
+      ].join('\n'), 'utf-8')
+
+      const result = removeRuleFromSingleFileAgent('custom-path', mockSingleFileAgent, {
+        global: false,
+        cwd,
+        targetPath: targetFile,
+      })
+
+      expect(result.success).toBe(true)
+      expect(readFileSync(targetFile, 'utf-8')).not.toContain('custom-path')
+    })
+
+    it('移除规则时清理引用文件但保留用户修改过的同路径文件', () => {
+      const ruleName = `${TEST_RULE_PREFIX}rule3`
+      createStoreRuleWithReferences(ruleName)
+
+      const cwd = makeTmpDir('remove-test-references')
+      const managedRule = createMockRuleWithReferences(ruleName, '# AGENTS.md')
+      injectRuleToSingleFileAgent(managedRule, mockSingleFileAgent, { global: false, cwd })
+
+      writeFileSync(join(cwd, 'docs', 'architecture.md'), '# 用户改写\n', 'utf-8')
+
+      const result = removeRuleFromSingleFileAgent(ruleName, mockSingleFileAgent, {
+        global: false,
+        cwd,
+        rule: managedRule,
+      })
+
+      expect(result.success).toBe(true)
+      expect(readFileSync(join(cwd, 'docs', 'architecture.md'), 'utf-8')).toContain('用户改写')
+      expect(existsSync(join(cwd, 'docs', 'design-docs', 'ref-cli.md'))).toBe(false)
+    })
+
+    it('强制移除引用文件时删除用户修改过的同路径文件', () => {
+      const ruleName = `${TEST_RULE_PREFIX}rule3`
+      createStoreRuleWithReferences(ruleName)
+
+      const cwd = makeTmpDir('remove-test-force-references')
+      const managedRule = createMockRuleWithReferences(ruleName, '# AGENTS.md')
+      injectRuleToSingleFileAgent(managedRule, mockSingleFileAgent, { global: false, cwd })
+
+      writeFileSync(join(cwd, 'docs', 'architecture.md'), '# 用户改写\n', 'utf-8')
+
+      const result = removeRuleFromSingleFileAgent(ruleName, mockSingleFileAgent, {
+        global: false,
+        cwd,
+        rule: managedRule,
+        forceReferences: true,
+      })
+
+      expect(result.success).toBe(true)
+      expect(existsSync(join(cwd, 'docs', 'architecture.md'))).toBe(false)
+      expect(existsSync(join(cwd, 'docs', 'design-docs', 'ref-cli.md'))).toBe(false)
+    })
+
+    it('强制移除引用文件时即使规则注入块已不存在也会删除实际文件', () => {
+      const ruleName = `${TEST_RULE_PREFIX}rule3`
+      createStoreRuleWithReferences(ruleName)
+
+      const cwd = makeTmpDir('remove-test-force-references-without-block')
+      const managedRule = createMockRuleWithReferences(ruleName, '# AGENTS.md')
+      injectRuleToSingleFileAgent(managedRule, mockSingleFileAgent, { global: false, cwd })
+
+      writeFileSync(join(cwd, 'TEST-RULES.md'), '# 用户已手动删除规则注入块\n', 'utf-8')
+
+      const result = removeRuleFromSingleFileAgent(ruleName, mockSingleFileAgent, {
+        global: false,
+        cwd,
+        rule: managedRule,
+        forceReferences: true,
+      })
+
+      expect(result.success).toBe(true)
+      expect(existsSync(join(cwd, 'docs', 'architecture.md'))).toBe(false)
+      expect(existsSync(join(cwd, 'docs', 'design-docs', 'ref-cli.md'))).toBe(false)
+    })
+
+    it('强制移除目录型 agent 引用文件时不依赖源文件内容匹配', () => {
+      const ruleName = `${TEST_RULE_PREFIX}rule3`
+      createStoreRuleWithReferences(ruleName)
+
+      const cwd = makeTmpDir('remove-test-force-directory-references')
+      const managedRule = createMockRuleWithReferences(ruleName, '# AGENTS.md')
+      linkRuleToDirectoryAgent(managedRule, mockDirectoryAgent, { global: false, cwd })
+
+      writeFileSync(join(cwd, '.test-agent', 'rules', ruleName, 'docs', 'architecture.md'), '# 用户改写\n', 'utf-8')
+
+      removeRuleReferencesFromDirectoryAgent(managedRule, mockDirectoryAgent, {
+        global: false,
+        cwd,
+        forceReferences: true,
+      })
+
+      expect(existsSync(join(cwd, '.test-agent', 'rules', ruleName, 'docs', 'architecture.md'))).toBe(false)
+      expect(existsSync(join(cwd, '.test-agent', 'rules', ruleName, 'docs', 'design-docs', 'ref-cli.md'))).toBe(false)
     })
   })
 })

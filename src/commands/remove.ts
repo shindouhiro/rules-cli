@@ -6,7 +6,8 @@ import * as p from '@clack/prompts'
 import consola from 'consola'
 import pc from 'picocolors'
 import { AGENTS, getAgentsByIds, resolveAgentPath } from '~/core/agents'
-import { removeRuleFromSingleFileAgent } from '~/core/linker'
+import { removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
+import { getRuleByName } from '~/core/scanner'
 import { getStoreRuleDir, listStoreRuleNames } from '~/core/store'
 import { printSection } from '~/core/ui'
 
@@ -169,6 +170,9 @@ function removeOne(item: RemovableItem, cwd: string): { success: boolean, messag
 
   if (item.mode === 'symlink') {
     try {
+      const rule = getRuleByName(item.name, { cwd, global: item.scope === 'global' })
+      if (rule)
+        removeRuleReferencesFromDirectoryAgent(rule, item.agent, { global: item.scope === 'global', cwd })
       unlinkSync(item.path)
       return {
         success: true,
@@ -183,7 +187,8 @@ function removeOne(item: RemovableItem, cwd: string): { success: boolean, messag
     }
   }
 
-  const result = removeRuleFromSingleFileAgent(item.name, item.agent, { global: item.scope === 'global', cwd })
+  const rule = getRuleByName(item.name, { cwd, global: item.scope === 'global' })
+  const result = removeRuleFromSingleFileAgent(item.name, item.agent, { global: item.scope === 'global', cwd, rule })
   if (result.success) {
     return {
       success: true,

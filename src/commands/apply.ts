@@ -6,7 +6,7 @@ import pc from 'picocolors'
 import { AGENTS, getAgentsByIds, resolveAgentPath } from '~/core/agents'
 import { loadConfig } from '~/core/config'
 import { injectRuleToSingleFileAgent, linkRuleToDirectoryAgent } from '~/core/linker'
-import { getRuleByName, scanStoreRules } from '~/core/scanner'
+import { getRuleByName, scanStoreRuleEntries, scanStoreRules } from '~/core/scanner'
 import { resolveIsGlobal } from '~/core/scope'
 import { printScope, printSection, printSummary } from '~/core/ui'
 
@@ -15,6 +15,7 @@ export interface ApplyOptions {
   global?: boolean
   project?: boolean
   force?: boolean
+  rulePaths?: string[]
 }
 
 interface ApplyTarget {
@@ -73,9 +74,17 @@ export async function applyRulesByNames(ruleNames: string[], options: ApplyOptio
   const cwd = process.cwd()
   const isGlobal = resolveIsGlobal(options)
   const config = loadConfig(cwd)
-  const selectedRules = ruleNames
-    .map(name => getRuleByName(name, { cwd }))
-    .filter((r): r is RuleInfo => r !== undefined)
+  const rulesByPath = options.rulePaths?.length
+    ? new Map(scanStoreRuleEntries({ cwd }).map(rule => [rule.path, rule]))
+    : undefined
+  const selectedRules: RuleInfo[] = rulesByPath
+    ? options.rulePaths!.flatMap((path) => {
+        const rule = rulesByPath.get(path)
+        return rule ? [rule] : []
+      })
+    : ruleNames
+        .map(name => getRuleByName(name, { cwd }))
+        .filter((rule): rule is RuleInfo => Boolean(rule))
 
   if (selectedRules.length === 0) {
     consola.warn('没有可应用的已下载规则')

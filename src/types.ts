@@ -32,6 +32,30 @@ export interface RuleMeta {
   name: string
   description: string
   tags?: string[]
+  referencesDir?: string
+  references?: RuleReference[]
+}
+
+/**
+ * rule.md frontmatter 中声明的引用文件
+ */
+export interface RuleReference {
+  /** 引用文件相对路径，支持 * glob */
+  path: string
+  /** 地图入口展示标题 */
+  title?: string
+}
+
+/**
+ * 已解析到具体文件的引用
+ */
+export interface ResolvedRuleReference {
+  /** store 中的源文件绝对路径 */
+  sourcePath: string
+  /** 应用到目标目录时使用的相对路径 */
+  targetPath: string
+  /** 地图入口展示标题 */
+  title?: string
 }
 
 /**
@@ -46,6 +70,18 @@ export interface RuleInfo {
   meta?: RuleMeta
   /** 规则内容（不含 frontmatter） */
   content: string
+  /** 已解析到具体文件的引用文件 */
+  references?: ResolvedRuleReference[]
+}
+
+/**
+ * 带 store 作用域的规则信息
+ */
+export interface ScopedRuleInfo extends RuleInfo {
+  /** 规则所在 store 作用域 */
+  scope: 'project' | 'global'
+  /** 是否来自全局 store */
+  isGlobal: boolean
 }
 
 /**

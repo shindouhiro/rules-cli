@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFile
 import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
 import { resolveAgentPath } from '~/core/agents'
+import { applyRuleReferences, removeRuleReferences } from '~/core/references'
 
 /**
  * 为目录型 agent 创建 symlink
@@ -44,6 +45,8 @@ export function linkRuleToDirectoryAgent(
       targetFile,
       process.platform === 'win32' ? 'junction' : 'file',
     )
+
+    applyRuleReferences(rule, join(baseDir, rule.name))
 
     return { targetPath: targetFile, success: true }
   }
@@ -114,6 +117,7 @@ export function injectRuleToSingleFileAgent(
     }
 
     writeFileSync(targetFile, newContent, 'utf-8')
+    applyRuleReferences(rule, dirname(targetFile))
     return { targetPath: targetFile, success: true }
   }
   catch (err) {
@@ -131,11 +135,15 @@ export function injectRuleToSingleFileAgent(
 export function removeRuleFromSingleFileAgent(
   ruleName: string,
   agent: AgentRulesDef,
-  options: { global: boolean, cwd: string },
+  options: { global: boolean, cwd: string, rule?: RuleInfo, targetPath?: string, forceReferences?: boolean },
 ): { success: boolean, error?: string } {
-  const targetFile = resolveAgentPath(agent, options)
+  const targetFile = options.targetPath || resolveAgentPath(agent, options)
 
   if (!existsSync(targetFile)) {
+    if (options.rule && options.forceReferences) {
+      removeRuleReferences(options.rule, dirname(targetFile), { force: true })
+      return { success: true }
+    }
     return { success: false, error: '目标文件不存在' }
   }
 
@@ -147,6 +155,10 @@ export function removeRuleFromSingleFileAgent(
     )
 
     if (!ruleRegex.test(content)) {
+      if (options.rule && options.forceReferences) {
+        removeRuleReferences(options.rule, dirname(targetFile), { force: true })
+        return { success: true }
+      }
       return { success: false, error: '规则未找到' }
     }
 
@@ -161,11 +173,22 @@ export function removeRuleFromSingleFileAgent(
     content = content.replace(emptyBlockRegex, '')
 
     writeFileSync(targetFile, content.trim() ? `${content.trim()}\n` : '', 'utf-8')
+    if (options.rule)
+      removeRuleReferences(options.rule, dirname(targetFile), { force: options.forceReferences })
     return { success: true }
   }
   catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
+}
+
+export function removeRuleReferencesFromDirectoryAgent(
+  rule: RuleInfo,
+  agent: AgentRulesDef,
+  options: { global: boolean, cwd: string, forceReferences?: boolean },
+): void {
+  const baseDir = resolveAgentPath(agent, options)
+  removeRuleReferences(rule, join(baseDir, rule.name), { force: options.forceReferences })
 }
 
 function escapeRegex(str: string): string {

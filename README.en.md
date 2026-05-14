@@ -230,10 +230,54 @@ Recommended `rule.md` frontmatter:
 name: use-chinese
 description: Always reply in Chinese
 tags: [language, i18n]
+referencesDir: docs
+references: []
 ---
 
 All replies, reasoning, and task lists must use Chinese.
 ```
+
+### Map-style References
+
+A rule can use `rule.md` as the entry map and keep detailed guidance in referenced files under the same rule directory:
+
+```text
+.rules/store/agent-map/
+├── rule.md
+└── docs/
+    ├── architecture.md
+    ├── development.md
+    └── design-docs/
+        └── ref-cli.md
+```
+
+Declare referenced files in the `rule.md` frontmatter:
+
+```md
+---
+name: agent-map
+description: AGENTS.md entry map
+tags: [agent]
+referencesDir: docs
+references:
+  - path: docs/architecture.md
+    title: Layered architecture
+  - path: docs/development.md
+    title: Development setup
+  - path: docs/design-docs/ref-*.md
+    title: Reference architecture notes
+---
+
+# AGENTS.md
+
+- [Architecture](./docs/architecture.md)
+- [Development](./docs/development.md)
+- [Reference](./docs/design-docs/ref-cli.md)
+```
+
+After `rules apply agent-map --agent codex --project`, `AGENTS.md` receives the entry map and the referenced files are copied relative to the target rule file. When removing the rule, rules-cli only deletes referenced files whose content still matches the store source; files changed by hand are preserved.
+
+`referencesDir` controls the target directory for referenced files and defaults to `docs`. When set to `ai-rules` or another safe relative directory, referenced files are written under that directory and map links point there. If a source path already starts with `docs/`, that source prefix is stripped when switching directories, so `docs/architecture.md` becomes `ai-rules/architecture.md`.
 
 ## 🛠️ Development
 

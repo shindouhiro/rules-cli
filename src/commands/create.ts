@@ -9,6 +9,7 @@ import { printScope, printSection } from '~/core/ui'
 export interface CreateOptions {
   global?: boolean
   project?: boolean
+  referencesDir?: string
 }
 
 export async function createCommand(name: string, options: CreateOptions = {}): Promise<void> {
@@ -32,6 +33,8 @@ export async function createCommand(name: string, options: CreateOptions = {}): 
 name: ${name}
 description: 在此添加规则描述
 tags: []
+referencesDir: ${options.referencesDir || 'docs'}
+references: []
 ---
 
 # ${name}
