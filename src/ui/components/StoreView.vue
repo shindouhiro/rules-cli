@@ -138,16 +138,19 @@ watch(() => props.agents, (newAgents) => {
               {{ rule.isGlobal ? '全局层级' : '项目层级' }}
             </span>
           </div>
-          <p class="mb-5 line-clamp-2 cursor-pointer text-sm leading-relaxed text-slate-400" @click="toggleSelectRule(rule.path)">
+          <p class="mb-5 line-clamp-2 cursor-pointer text-sm leading-relaxed text-slate-400 group-hover:text-slate-300 transition-colors" @click="toggleSelectRule(rule.path)">
             {{ rule.meta?.description || '暂无描述信息' }}
           </p>
-          <div v-if="rule.references?.length" class="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
-            <p class="text-xs font-semibold text-cyan-300">
-              引用文件 <span class="tabular-nums">{{ rule.references.length }}</span> 个
-              <span v-if="rule.meta?.referencesDir" class="ml-1 font-mono text-cyan-400/80">→ {{ rule.meta.referencesDir }}</span>
-            </p>
-            <div class="mt-1 flex flex-wrap gap-1">
-              <span v-for="reference in rule.references" :key="reference.targetPath" class="max-w-full truncate rounded border border-slate-800 bg-slate-950 px-1.5 py-0.5 font-mono text-xs text-slate-400" :title="reference.targetPath">
+          <div v-if="rule.references?.length" class="mb-5 rounded-2xl border border-cyan-500/15 bg-cyan-500/5 p-3 group/ref transition-colors hover:border-cyan-500/25">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-1.5">
+                <Icon icon="ph:files-duotone" class="text-cyan-400 text-sm" />
+                <span class="text-[11px] font-bold text-cyan-300 uppercase tracking-wider">引用文件</span>
+              </div>
+              <span v-if="rule.meta?.referencesDir" class="font-mono text-[10px] text-cyan-500/70">{{ rule.meta.referencesDir }}/</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <span v-for="reference in rule.references" :key="reference.targetPath" class="max-w-full truncate rounded-lg border border-slate-800/60 bg-slate-950/80 px-2 py-1 font-mono text-[10px] text-slate-400 group-hover/ref:text-slate-300 transition-colors" :title="reference.targetPath">
                 {{ reference.targetPath }}
               </span>
             </div>
@@ -159,13 +162,22 @@ watch(() => props.agents, (newAgents) => {
             <span v-for="tag in rule.meta?.tags" :key="tag" class="text-xs bg-slate-900 text-slate-400 px-1.5 py-0.5 rounded border border-slate-800/80">#{{ tag }}</span>
           </div>
           <div class="flex items-center space-x-2 shrink-0">
-            <button class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-500 flex items-center gap-1.5" @click="emit('edit', rule)">
-              <Icon icon="ph:pencil-simple-duotone" class="text-sm" />
-              编辑
-            </button>
-            <button class="p-1.5 rounded-lg hover:bg-rose-950/40 text-slate-500 hover:text-rose-400 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500" title="彻底删除" aria-label="彻底删除" @click="emit('delete', rule)">
-              <Icon icon="ph:trash-duotone" class="text-base" />
-            </button>
+            <div class="relative group/edit">
+              <button class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-brand-500/50 text-slate-400 hover:text-brand-400 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 shadow-sm" aria-label="编辑源码" @click="emit('edit', rule)">
+                <Icon icon="ph:pencil-simple-duotone" class="text-lg" />
+              </button>
+              <div class="absolute bottom-full right-1/2 translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-[10px] text-slate-200 rounded opacity-0 group-hover/edit:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-slate-700 shadow-xl z-10">
+                编辑源码
+              </div>
+            </div>
+            <div class="relative group/delete">
+              <button class="p-2 rounded-xl hover:bg-rose-950/40 text-slate-500 hover:text-rose-400 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 border border-transparent hover:border-rose-900/50" aria-label="彻底删除" @click="emit('delete', rule)">
+                <Icon icon="ph:trash-duotone" class="text-lg" />
+              </button>
+              <div class="absolute bottom-full right-1/2 translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-[10px] text-slate-200 rounded opacity-0 group-hover/delete:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-slate-700 shadow-xl z-10">
+                彻底销毁模板
+              </div>
+            </div>
           </div>
         </div>
       </div>

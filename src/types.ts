@@ -40,10 +40,12 @@ export interface RuleMeta {
  * rule.md frontmatter 中声明的引用文件
  */
 export interface RuleReference {
-  /** 引用文件相对路径，支持 * glob */
-  path: string
+  /** 引用文件相对路径，支持 * glob。如果指定 content，则 path 视为应用时的目标路径 */
+  path?: string
   /** 地图入口展示标题 */
   title?: string
+  /** 直接生成的引用文件内容 */
+  content?: string
 }
 
 /**

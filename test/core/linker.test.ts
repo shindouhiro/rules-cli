@@ -336,6 +336,7 @@ describe('linker', () => {
       expect(content).not.toContain('待删除')
       expect(content).not.toContain('## to-remove')
       expect(existsSync(join(cwd, 'docs', 'to-remove.md'))).toBe(false)
+      expect(existsSync(join(cwd, 'docs'))).toBe(false)
     })
 
     it('文件不存在时返回失败', () => {
@@ -402,6 +403,7 @@ describe('linker', () => {
       expect(content).toContain('[rule-b.md](./docs/rule-b.md)')
       expect(content).toContain('<!-- rules-cli:start -->')
       expect(existsSync(join(cwd, 'docs', 'rule-a.md'))).toBe(false)
+      expect(existsSync(join(cwd, 'docs'))).toBe(true)
       expect(readFileSync(join(cwd, 'docs', 'rule-b.md'), 'utf-8')).toBe('规则B\n')
     })
 
@@ -446,6 +448,8 @@ describe('linker', () => {
       expect(result.success).toBe(true)
       expect(readFileSync(join(cwd, 'docs', 'architecture.md'), 'utf-8')).toContain('用户改写')
       expect(existsSync(join(cwd, 'docs', 'design-docs', 'ref-cli.md'))).toBe(false)
+      expect(existsSync(join(cwd, 'docs', 'design-docs'))).toBe(false)
+      expect(existsSync(join(cwd, 'docs'))).toBe(true)
     })
 
     it('强制移除引用文件时删除用户修改过的同路径文件', () => {
@@ -468,6 +472,7 @@ describe('linker', () => {
       expect(result.success).toBe(true)
       expect(existsSync(join(cwd, 'docs', 'architecture.md'))).toBe(false)
       expect(existsSync(join(cwd, 'docs', 'design-docs', 'ref-cli.md'))).toBe(false)
+      expect(existsSync(join(cwd, 'docs'))).toBe(false)
     })
 
     it('强制移除引用文件时即使规则注入块已不存在也会删除实际文件', () => {
@@ -490,6 +495,7 @@ describe('linker', () => {
       expect(result.success).toBe(true)
       expect(existsSync(join(cwd, 'docs', 'architecture.md'))).toBe(false)
       expect(existsSync(join(cwd, 'docs', 'design-docs', 'ref-cli.md'))).toBe(false)
+      expect(existsSync(join(cwd, 'docs'))).toBe(false)
     })
 
     it('强制移除目录型 agent 引用文件时不依赖源文件内容匹配', () => {
@@ -510,6 +516,7 @@ describe('linker', () => {
 
       expect(existsSync(join(cwd, '.test-agent', 'rules', ruleName, 'docs', 'architecture.md'))).toBe(false)
       expect(existsSync(join(cwd, '.test-agent', 'rules', ruleName, 'docs', 'design-docs', 'ref-cli.md'))).toBe(false)
+      expect(existsSync(join(cwd, '.test-agent', 'rules', ruleName, 'docs'))).toBe(false)
     })
   })
 })

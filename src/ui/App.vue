@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { Icon } from '@iconify/vue'
 import { onMounted, ref } from 'vue'
 import AppliedView from './components/AppliedView.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 import EditModal from './components/EditModal.vue'
 import RemoteView from './components/RemoteView.vue'
 import StoreView from './components/StoreView.vue'
@@ -13,6 +15,16 @@ const currentTab = ref('store')
 
 const toast = ref({ show: false, message: '', type: 'success' })
 const editModal = ref({ show: false, rule: null as any })
+const confirmDialog = ref({
+  show: false,
+  title: '',
+  message: '',
+  details: [] as string[],
+  confirmText: '确认',
+  cancelText: '取消',
+  tone: 'danger' as 'danger' | 'default',
+  resolve: null as null | ((confirmed: boolean) => void),
+})
 
 function showToast(message: string, type = 'success') {
   toast.value = { show: true, message, type }
@@ -107,8 +119,13 @@ async function handleApplyRuleFromModal(rule: any, agentIds: string[], isGlobal:
 }
 
 async function handleRemoveApplied(item: any) {
-  // eslint-disable-next-line no-alert
-  if (!confirm(`确定将规则 ${item.name} 从 ${item.agentName} 映射中解除绑定吗？`))
+  const confirmed = await requestConfirm({
+    title: '解除生效映射',
+    message: `确定将规则 ${item.name} 从 ${item.agentName} 映射中解除绑定吗？`,
+    details: [item.path],
+    confirmText: '解除绑定',
+  })
+  if (!confirmed)
     return
   try {
     const json = await removeAppliedItem(item)
@@ -144,10 +161,13 @@ async function handleRemoveManyApplied(items: any[]) {
   if (items.length === 0)
     return
 
-  const preview = items.slice(0, 4).map(item => `${item.name} / ${item.agentName}`).join('\n')
-  const suffix = items.length > 4 ? `\n... 另有 ${items.length - 4} 条` : ''
-  // eslint-disable-next-line no-alert
-  if (!confirm(`确定批量解除 ${items.length} 条生效映射吗？\n\n${preview}${suffix}`))
+  const confirmed = await requestConfirm({
+    title: '批量解除生效映射',
+    message: `确定批量解除 ${items.length} 条生效映射吗？`,
+    details: items.map(item => `${item.name} / ${item.agentName}`),
+    confirmText: `确认解除`,
+  })
+  if (!confirmed)
     return
 
   let successCount = 0
@@ -200,8 +220,13 @@ async function handleSaveEdit(path: string, content: string, references: Array<{
 }
 
 async function handleDeleteStoreRule(rule: any) {
-  // eslint-disable-next-line no-alert
-  if (!confirm(`极其危险操作提醒：确定永久销毁本地规则模板空间 [${rule.name}] 吗？`))
+  const confirmed = await requestConfirm({
+    title: '永久删除规则模板',
+    message: `确定永久销毁本地规则模板空间 [${rule.name}] 吗？该操作会同步清理已应用映射和引用文件。`,
+    details: [rule.path],
+    confirmText: '永久删除',
+  })
+  if (!confirmed)
     return
   try {
     const res = await fetch('/api/delete-store-rule', {
@@ -276,6 +301,35 @@ async function handleCreateRule(name: string, isGlobal: boolean, referencesDir: 
 onMounted(() => {
   fetchData()
 })
+
+function requestConfirm(options: {
+  title: string
+  message: string
+  details?: string[]
+  confirmText?: string
+  cancelText?: string
+  tone?: 'danger' | 'default'
+}): Promise<boolean> {
+  return new Promise((resolve) => {
+    confirmDialog.value = {
+      show: true,
+      title: options.title,
+      message: options.message,
+      details: options.details || [],
+      confirmText: options.confirmText || '确认',
+      cancelText: options.cancelText || '取消',
+      tone: options.tone || 'danger',
+      resolve,
+    }
+  })
+}
+
+function closeConfirmDialog(confirmed: boolean) {
+  const resolver = confirmDialog.value.resolve
+  confirmDialog.value.show = false
+  confirmDialog.value.resolve = null
+  resolver?.(confirmed)
+}
 </script>
 
 <template>
@@ -305,17 +359,17 @@ onMounted(() => {
           </div>
 
           <nav class="grid gap-2 p-4">
-            <button class="flex items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'store' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'store'">
+            <button class="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'store' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'store'">
+              <Icon icon="ph:database-duotone" class="text-lg" />
               <span>本地规则库</span>
-              <span class="font-mono tabular-nums text-xs text-slate-500">{{ rules.length }}</span>
             </button>
-            <button class="flex items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'applied' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'applied'">
+            <button class="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'applied' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'applied'">
+              <Icon icon="ph:link-duotone" class="text-lg" />
               <span>生效映射</span>
-              <span class="font-mono tabular-nums text-xs text-slate-500">{{ applied.length }}</span>
             </button>
-            <button class="flex items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'remote' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'remote'">
+            <button class="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'remote' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'remote'">
+              <Icon icon="ph:plus-circle-duotone" class="text-lg" />
               <span>远程与新建</span>
-              <span class="font-mono tabular-nums text-xs text-slate-500">+</span>
             </button>
           </nav>
 
@@ -351,5 +405,16 @@ onMounted(() => {
 
     <!-- 源码编辑器抽屉 Modal -->
     <EditModal :show="editModal.show" :rule="editModal.rule" :agents="agents" @close="editModal.show = false" @save="handleSaveEdit" @apply="handleApplyRuleFromModal" />
+    <ConfirmDialog
+      :show="confirmDialog.show"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :details="confirmDialog.details"
+      :confirm-text="confirmDialog.confirmText"
+      :cancel-text="confirmDialog.cancelText"
+      :tone="confirmDialog.tone"
+      @confirm="closeConfirmDialog(true)"
+      @cancel="closeConfirmDialog(false)"
+    />
   </div>
 </template>

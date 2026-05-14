@@ -1,5 +1,5 @@
 import type { ResolvedRuleReference, RuleReference } from '~/types'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
 
 export function isUnsafeReferencePath(path: string): boolean {
@@ -127,7 +127,7 @@ export function removeRuleReferences(rule: { references?: ResolvedRuleReference[
     }
 
     rmSync(targetPath, { force: true })
-    pruneEmptyParents(dirname(targetPath), targetRoot)
+    pruneEmptyReferenceParents(dirname(targetPath), targetRoot, reference.targetPath)
   }
 }
 
@@ -188,14 +188,28 @@ function walkFiles(root: string): string[] {
   return files
 }
 
-function pruneEmptyParents(startDir: string, stopDir: string): void {
+function pruneEmptyReferenceParents(startDir: string, targetRoot: string, targetPath: string): void {
+  const referenceRoot = getReferenceRoot(targetPath)
+  const stopDir = referenceRoot ? join(targetRoot, referenceRoot) : targetRoot
+  pruneEmptyParents(startDir, targetRoot, stopDir)
+}
+
+function getReferenceRoot(targetPath: string): string | undefined {
+  const parts = targetPath.split(/[\\/]/u).filter(Boolean)
+  return parts.length > 1 ? parts[0] : undefined
+}
+
+function pruneEmptyParents(startDir: string, boundaryDir: string, stopDir: string): void {
   let current = startDir
+  const boundary = resolve(boundaryDir)
   const stop = resolve(stopDir)
-  while (current.startsWith(stop) && current !== stop) {
+  while (current.startsWith(boundary) && current !== boundary) {
     try {
       if (readdirSync(current).length > 0)
         return
-      rmSync(current, { recursive: false })
+      rmdirSync(current)
+      if (current === stop)
+        return
       current = dirname(current)
     }
     catch {

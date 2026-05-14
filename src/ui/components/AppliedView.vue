@@ -84,9 +84,9 @@ function removeMany() {
           <Icon icon="ph:x-bold" class="text-sm" aria-hidden="true" />
           清空
         </button>
-        <button class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-950/50 disabled:text-slate-600" :class="hasSelection ? 'border-rose-500/40 bg-rose-950/45 text-rose-200 hover:border-rose-400/70 hover:bg-rose-900/50' : ''" :disabled="!hasSelection" @click="removeMany">
+        <button class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-950/50 disabled:text-slate-600" :class="hasSelection ? 'border-rose-500/40 bg-rose-950/45 text-rose-200 hover:border-rose-400/70 hover:bg-rose-900/50 shadow-lg shadow-rose-950/20' : ''" :disabled="!hasSelection" @click="removeMany">
           <Icon icon="ph:trash-duotone" class="text-base" aria-hidden="true" />
-          删除选中 {{ selectedItems.length || '' }}
+          删除选中
         </button>
       </div>
     </div>
@@ -98,31 +98,44 @@ function removeMany() {
       当前机器与项目中未发现任何被绑定应用的规则映射单据
     </div>
     <div v-else class="space-y-2.5">
-      <div v-for="item in applied" :key="itemKey(item)" class="group border rounded-xl p-3 transition-colors" :class="selectedKeys.has(itemKey(item)) ? 'border-cyan-500/45 bg-cyan-950/20 shadow-[0_0_0_1px_rgba(34,211,238,0.08)]' : 'border-slate-800/60 bg-slate-900/60 hover:border-slate-700'">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex items-start space-x-3 min-w-0 flex-1">
-            <button class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500" :class="selectedKeys.has(itemKey(item)) ? 'border-cyan-400 bg-cyan-400 text-slate-950' : 'border-slate-700 bg-slate-950 text-transparent group-hover:border-slate-500'" :aria-pressed="selectedKeys.has(itemKey(item))" :aria-label="`选择 ${item.name}`" @click="toggleItem(item)">
+      <div v-for="item in applied" :key="itemKey(item)" class="group border rounded-2xl p-4 transition-all duration-200" :class="selectedKeys.has(itemKey(item)) ? 'border-cyan-500/40 bg-cyan-950/20 shadow-lg shadow-cyan-950/20' : 'border-slate-800/60 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/60'">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-start space-x-4 min-w-0 flex-1">
+            <button class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500" :class="selectedKeys.has(itemKey(item)) ? 'border-cyan-400 bg-cyan-400 text-slate-950' : 'border-slate-700 bg-slate-950 text-transparent group-hover:border-slate-500'" :aria-pressed="selectedKeys.has(itemKey(item))" :aria-label="`选择 ${item.name}`" @click="toggleItem(item)">
               <Icon icon="ph:check-bold" class="text-xs" aria-hidden="true" />
             </button>
-            <Icon v-if="item.mode === 'symlink'" icon="ph:link-duotone" class="text-lg mt-0.5 shrink-0 text-cyan-500" aria-hidden="true" />
-            <Icon v-else icon="ph:needle-duotone" class="text-lg mt-0.5 shrink-0 text-rose-500" aria-hidden="true" />
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="font-medium text-xs text-slate-200">{{ item.name }}</span>
-                <span class="text-xs px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-cyan-400 font-mono">{{ item.agentName }}</span>
-                <span class="text-xs px-1.5 py-0.5 rounded font-medium" :class="item.scope === 'global' ? 'bg-purple-950 text-purple-300' : 'bg-slate-800 text-slate-400'">
-                  {{ item.scope === 'global' ? '全局层级' : '项目层级' }}
-                </span>
-                <span class="text-xs text-slate-500 font-mono">{{ item.mode }}</span>
+            <div class="relative group/icon mt-0.5">
+              <Icon v-if="item.mode === 'symlink'" icon="ph:link-duotone" class="text-xl shrink-0 text-cyan-500" aria-hidden="true" />
+              <Icon v-else icon="ph:needle-duotone" class="text-xl shrink-0 text-rose-500" aria-hidden="true" />
+              <!-- Hover Tooltip -->
+              <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-[10px] text-slate-200 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-slate-700 z-10">
+                {{ item.mode === 'symlink' ? '符号链接映射' : '内容注入映射' }}
               </div>
-              <p class="text-xs text-slate-500 truncate mt-1 font-mono" :title="item.path">
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2 mb-1">
+                <span class="font-semibold text-sm text-slate-100">{{ item.name }}</span>
+                <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-950 border border-slate-800">
+                  <Icon icon="ph:robot-duotone" class="text-xs text-brand-400" />
+                  <span class="text-[10px] text-brand-300 font-bold uppercase tracking-wider">{{ item.agentName }}</span>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" :class="item.scope === 'global' ? 'bg-purple-900/40 text-purple-300 border border-purple-800/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/50'">
+                  {{ item.scope === 'global' ? 'Global' : 'Project' }}
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 truncate font-mono bg-slate-950/50 px-2 py-1 rounded border border-slate-800/30 inline-block max-w-full" :title="item.path">
                 {{ item.path }}
               </p>
             </div>
           </div>
-          <button class="bg-slate-950 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-900 text-slate-400 hover:text-rose-300 px-2.5 py-1 rounded-lg text-xs transition-colors shrink-0 self-end sm:self-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500" @click="emit('remove', item)">
-            解绑/卸载
-          </button>
+          <div class="relative group/delete shrink-0 self-end sm:self-auto">
+            <button class="p-2 rounded-xl bg-slate-950 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-900/50 text-slate-400 hover:text-rose-400 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 shadow-sm" aria-label="解绑卸载" @click="emit('remove', item)">
+              <Icon icon="ph:link-break-duotone" class="text-lg" />
+            </button>
+            <div class="absolute bottom-full right-1/2 translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-[10px] text-slate-200 rounded opacity-0 group-hover/delete:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-slate-700 shadow-xl z-10">
+              解绑卸载
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -131,9 +131,14 @@ function handleCreate() {
                 <span v-for="tag in rule.meta.tags" :key="tag" class="rounded-md bg-slate-800 px-1.5 py-0.5 text-xs text-slate-400">{{ tag }}</span>
               </div>
             </div>
-            <button class="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300 transition hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900" @click="handleInstallSearchResult(rule)">
-              安装
-            </button>
+            <div class="relative group/install shrink-0">
+              <button class="p-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 transition hover:bg-emerald-500/20 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 shadow-sm" aria-label="安装到本地" @click="handleInstallSearchResult(rule)">
+                <Icon icon="ph:download-simple-duotone" class="text-lg" />
+              </button>
+              <div class="absolute bottom-full right-1/2 translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-[10px] text-slate-200 rounded opacity-0 group-hover/install:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-slate-700 shadow-xl z-10">
+                安装到本地
+              </div>
+            </div>
           </div>
         </article>
       </div>
