@@ -12,9 +12,10 @@ import pc from 'picocolors'
 import { applyRulesByNames } from '~/commands/apply'
 import { createCommand } from '~/commands/create'
 import { AGENTS, resolveAgentPath } from '~/core/agents'
-import { downloadCursorDirectoryRule } from '~/core/cursor-directory'
+import { loadConfig } from '~/core/config'
+import { downloadCursorDirectoryRule, searchCursorDirectoryRules } from '~/core/cursor-directory'
 import { removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
-import { downloadRule } from '~/core/remote'
+import { downloadRule, getSourceKey, searchAllRemoteSources } from '~/core/remote'
 import { getRuleByName, scanStoreRuleEntries } from '~/core/scanner'
 import { printSection } from '~/core/ui'
 
@@ -224,6 +225,22 @@ export async function uiCommand(options: UiOptions): Promise<void> {
           return jsonResponse({ success: true, data: { rules, agents: AGENTS, applied } })
         }
 
+        if (req.method === 'GET' && pathname === '/api/search-remote') {
+          const keyword = url.searchParams.get('keyword')?.trim() || undefined
+          const target = url.searchParams.get('target') || 'all'
+          const config = loadConfig(cwd)
+          const tasks: Array<Promise<any[]>> = []
+
+          if (target === 'all' || target === 'cursor')
+            tasks.push(searchCursorDirectoryRules(keyword).catch(() => []))
+
+          if ((target === 'all' || target === 'sources') && config.sources?.length)
+            tasks.push(searchAllRemoteSources(config.sources, keyword).catch(() => []))
+
+          const results = (await Promise.all(tasks)).flat()
+          return jsonResponse({ success: true, data: { results, hasConfiguredSources: !!config.sources?.length } })
+        }
+
         const getBody = async () => {
           const buffers = []
           for await (const chunk of req) {
@@ -321,7 +338,10 @@ export async function uiCommand(options: UiOptions): Promise<void> {
             await downloadCursorDirectoryRule(name, storeOptions)
           }
           else {
-            await downloadRule({ repo: source }, name, storeOptions)
+            const config = loadConfig(cwd)
+            const matchedSource = config.sources?.find(item => getSourceKey(item) === source)
+            const sourceConfig = matchedSource || { repo: String(source).replace(/^github:/u, '') }
+            await downloadRule(sourceConfig, name, storeOptions)
           }
           return jsonResponse({ success: true, message: `已成功同步下发至库` })
         }
