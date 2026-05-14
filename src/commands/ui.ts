@@ -346,12 +346,10 @@ export async function uiCommand(options: UiOptions): Promise<void> {
           return jsonResponse({ success: true, message: `已成功同步下发至库` })
         }
 
-        res.writeHead(404)
-        return jsonResponse({ success: false, message: '请求接口不存在' })
+        return jsonResponse({ success: false, message: '请求接口不存在' }, 404)
       }
       catch (err: any) {
-        res.writeHead(500)
-        return jsonResponse({ success: false, message: err.message || String(err) })
+        return jsonResponse({ success: false, message: err.message || String(err) }, 500)
       }
     }
 

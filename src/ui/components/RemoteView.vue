@@ -18,9 +18,9 @@ const emit = defineEmits<{
   (e: 'create', name: string, isGlobal: boolean, referencesDir: string): void
 }>()
 
-const installForm = ref({ name: '', source: 'cursor.directory', repo: '', global: false })
-const createForm = ref({ name: '', global: false, referencesDir: 'docs' })
-const searchForm = ref({ keyword: '', target: 'all', global: false })
+const installForm = ref({ name: '', source: 'cursor.directory', repo: '', global: true })
+const createForm = ref({ name: '', global: true, referencesDir: 'docs' })
+const searchForm = ref({ keyword: '', target: 'all', global: true })
 const searchState = ref({ loading: false, searched: false, error: '', hasConfiguredSources: false })
 const searchResults = ref<RemoteRuleResult[]>([])
 
@@ -85,7 +85,7 @@ function handleCreate() {
         </div>
         <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer">
           <input v-model="searchForm.global" type="checkbox" name="search-global" class="rounded bg-slate-900 border-slate-700 text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 mt-0.5">
-          <span>安装到全局库</span>
+          <span>安装到全局统一库</span>
         </label>
       </div>
 
@@ -175,7 +175,7 @@ function handleCreate() {
           <div class="flex items-center space-x-4 pt-1">
             <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer">
               <input v-model="installForm.global" type="checkbox" name="global" class="rounded bg-slate-900 border-slate-700 text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 mt-0.5">
-              <span>直接持久化至全局库</span>
+              <span>直接持久化至全局统一库</span>
             </label>
           </div>
           <button :disabled="!installForm.name" class="w-full bg-slate-900 hover:bg-slate-800 text-brand-400 border border-slate-800 hover:border-slate-700 px-4 py-2.5 rounded-xl text-xs font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900" @click="handleInstall">
@@ -205,7 +205,7 @@ function handleCreate() {
           <div class="flex items-center space-x-4 pt-1">
             <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer">
               <input v-model="createForm.global" type="checkbox" name="create-global" class="rounded bg-slate-900 border-slate-700 text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 mt-0.5">
-              <span>保存至全局 store</span>
+              <span>保存至全局统一库</span>
             </label>
           </div>
           <button :disabled="!createForm.name" class="w-full bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-500 hover:to-indigo-400 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shadow-lg shadow-purple-500/10 transition disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900" @click="handleCreate">

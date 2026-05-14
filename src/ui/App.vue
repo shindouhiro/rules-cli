@@ -82,6 +82,7 @@ async function handleApplyRuleFromModal(rule: any, agentIds: string[], isGlobal:
     const json = await res.json()
     if (json.success) {
       showToast('已按当前规则生成 Agent 引用文件')
+      editModal.value.show = false
       fetchData()
     }
     else {
@@ -231,7 +232,7 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-slate-950 text-slate-200">
     <!-- 通知 Toast -->
-    <div v-if="toast.show" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 transition flex items-center space-x-2 px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md border" :class="toast.type === 'success' ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200' : 'bg-rose-950/90 border-rose-500/30 text-rose-200'" aria-live="polite">
+    <div v-if="toast.show" class="fixed top-6 left-1/2 -translate-x-1/2 z-[60] transition flex items-center space-x-2 px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md border" :class="toast.type === 'success' ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200' : 'bg-rose-950/90 border-rose-500/30 text-rose-200'" aria-live="polite">
       <span class="text-sm font-medium">{{ toast.message }}</span>
     </div>
 
