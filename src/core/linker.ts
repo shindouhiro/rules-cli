@@ -93,9 +93,7 @@ export function injectRuleToSingleFileAgent(
 
     if (markerRegex.test(existing)) {
       // 已有标记区间 → 在区间内追加或替换
-      const ruleRegex = new RegExp(
-        `<!-- rule: ${escapeRegex(ruleForApply.name)} -->[\\s\\S]*?<!-- /rule: ${escapeRegex(ruleForApply.name)} -->`,
-      )
+      const ruleRegex = createManagedRuleRegex(ruleForApply.name, markerEnd)
 
       if (ruleRegex.test(existing)) {
         if (!options.force) {
@@ -151,9 +149,8 @@ export function removeRuleFromSingleFileAgent(
   try {
     let content = readFileSync(targetFile, 'utf-8')
 
-    const ruleRegex = new RegExp(
-      `\n?<!-- rule: ${escapeRegex(ruleName)} -->[\\s\\S]*?<!-- /rule: ${escapeRegex(ruleName)} -->\n?`,
-    )
+    const markerEnd = agent.injectMarkerEnd || '<!-- rules-cli:end -->'
+    const ruleRegex = createManagedRuleRegex(ruleName, markerEnd)
 
     if (!ruleRegex.test(content)) {
       if (options.rule && options.forceReferences) {
@@ -167,7 +164,6 @@ export function removeRuleFromSingleFileAgent(
 
     // 如果标记区间内空了，移除整个区间
     const markerStart = agent.injectMarkerStart || '<!-- rules-cli:start -->'
-    const markerEnd = agent.injectMarkerEnd || '<!-- rules-cli:end -->'
     const emptyBlockRegex = new RegExp(
       `\n?${escapeRegex(markerStart)}\\s*${escapeRegex(markerEnd)}\n?`,
     )
@@ -208,14 +204,51 @@ export function removeRuleReferencesFromDirectoryAgent(
   removeRuleReferences(rule, join(baseDir, rule.name), { force: options.forceReferences })
 }
 
+export function extractManagedRuleNames(
+  content: string,
+  markerStart = '<!-- rules-cli:start -->',
+  markerEnd = '<!-- rules-cli:end -->',
+): string[] {
+  const markerRegex = new RegExp(
+    `${escapeRegex(markerStart)}([\\s\\S]*?)${escapeRegex(markerEnd)}`,
+  )
+  const matched = content.match(markerRegex)
+  if (!matched)
+    return []
+
+  const block = matched[1] || ''
+  const names = [
+    ...[...block.matchAll(/<!-- rule: (.+?) -->/g)].map(m => m[1]),
+    ...block
+      .split(/\r?\n/u)
+      .filter(line => line.startsWith('## '))
+      .map(line => line.slice(3).trim()),
+  ]
+  return [...new Set(names)]
+}
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function createRuleBlock(ruleName: string, content: string): string {
+  const visibleContent = stripLeadingRuleHeading(content, ruleName).trim()
   return [
-    `<!-- rule: ${ruleName} -->`,
-    content,
-    `<!-- /rule: ${ruleName} -->`,
+    `## ${ruleName}`,
+    visibleContent,
   ].join('\n')
+}
+
+function createManagedRuleRegex(ruleName: string, markerEnd: string): RegExp {
+  const escapedName = escapeRegex(ruleName)
+  const legacyPattern = `\\n?<!-- rule: ${escapedName} -->[\\s\\S]*?<!-- /rule: ${escapedName} -->\\n?`
+  const headingPattern = `\\n?## ${escapedName}\\n[\\s\\S]*?(?=\\n## |\\n${escapeRegex(markerEnd)}|$)\\n?`
+  return new RegExp(`${legacyPattern}|${headingPattern}`)
+}
+
+function stripLeadingRuleHeading(content: string, ruleName: string): string {
+  const lines = content.trim().split(/\r?\n/u)
+  if (lines[0]?.trim() === `# ${ruleName}`)
+    return lines.slice(1).join('\n').trim()
+  return content
 }

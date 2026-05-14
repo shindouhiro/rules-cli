@@ -6,7 +6,7 @@ import * as p from '@clack/prompts'
 import consola from 'consola'
 import pc from 'picocolors'
 import { AGENTS, getAgentsByIds, resolveAgentPath } from '~/core/agents'
-import { removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
+import { extractManagedRuleNames, removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
 import { getRuleByName } from '~/core/scanner'
 import { getStoreRuleDir, listStoreRuleNames } from '~/core/store'
 import { printSection } from '~/core/ui'
@@ -102,7 +102,9 @@ function findAppliedRules(
       continue
 
     const content = readFileSync(targetFile, 'utf-8')
-    const ruleNames = [...content.matchAll(/<!-- rule: (.+?) -->/g)].map(m => m[1])
+    const markerStart = primaryMarkerStart(groupAgents)
+    const markerEnd = primaryMarkerEnd(groupAgents)
+    const ruleNames = extractManagedRuleNames(content, markerStart, markerEnd)
     if (ruleNames.length === 0)
       continue
 
@@ -123,6 +125,14 @@ function findAppliedRules(
   }
 
   return found
+}
+
+function primaryMarkerStart(agents: AgentRulesDef[]): string {
+  return agents[0]?.injectMarkerStart || '<!-- rules-cli:start -->'
+}
+
+function primaryMarkerEnd(agents: AgentRulesDef[]): string {
+  return agents[0]?.injectMarkerEnd || '<!-- rules-cli:end -->'
 }
 
 function findStoreRules(scope: 'global' | 'project', cwd: string): StoreRule[] {

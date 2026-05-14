@@ -209,10 +209,10 @@ describe('linker', () => {
 
       const content = readFileSync(result.targetPath, 'utf-8')
       expect(content).toContain('<!-- rules-cli:start -->')
-      expect(content).toContain('<!-- rule: use-chinese -->')
+      expect(content).toContain('## use-chinese')
       expect(content).toContain('[use-chinese.md](./docs/use-chinese.md)')
       expect(content).not.toContain('所有回复使用中文')
-      expect(content).toContain('<!-- /rule: use-chinese -->')
+      expect(content).not.toContain('<!-- rule: use-chinese -->')
       expect(content).toContain('<!-- rules-cli:end -->')
       expect(readFileSync(join(cwd, 'docs', 'use-chinese.md'), 'utf-8')).toBe('所有回复使用中文\n')
     })
@@ -251,9 +251,9 @@ describe('linker', () => {
       expect(result.success).toBe(true)
 
       const content = readFileSync(targetFile, 'utf-8')
-      expect(content).toContain('<!-- rule: rule-1 -->')
+      expect(content).toContain('## rule-1')
       expect(content).toContain('[rule-1.md](./docs/rule-1.md)')
-      expect(content).toContain('<!-- rule: rule-2 -->')
+      expect(content).toContain('## rule-2')
       expect(content).toContain('[rule-2.md](./docs/rule-2.md)')
       expect(readFileSync(join(cwd, 'docs', 'rule-1.md'), 'utf-8')).toBe('第一条规则\n')
       expect(readFileSync(join(cwd, 'docs', 'rule-2.md'), 'utf-8')).toBe('第二条规则\n')
@@ -334,7 +334,7 @@ describe('linker', () => {
 
       const content = readFileSync(targetFile, 'utf-8')
       expect(content).not.toContain('待删除')
-      expect(content).not.toContain('<!-- rule: to-remove -->')
+      expect(content).not.toContain('## to-remove')
       expect(existsSync(join(cwd, 'docs', 'to-remove.md'))).toBe(false)
     })
 

@@ -31,9 +31,9 @@ export function parseReferences(frontmatter: string): RuleReference[] | undefine
       continue
     }
 
-    if (current && (trimmed.startsWith('path:') || trimmed.startsWith('title:'))) {
+    if (current && (trimmed.startsWith('path:') || trimmed.startsWith('title:') || trimmed.startsWith('content:'))) {
       const colonIdx = trimmed.indexOf(':')
-      const key = trimmed.slice(0, colonIdx) as 'path' | 'title'
+      const key = trimmed.slice(0, colonIdx) as 'path' | 'title' | 'content'
       current[key] = stripYamlQuote(trimmed.slice(colonIdx + 1).trim())
     }
   }
@@ -49,6 +49,21 @@ export function resolveRuleReferences(ruleDir: string, references?: RuleReferenc
 
   const resolvedReferences: ResolvedRuleReference[] = []
   for (const reference of references) {
+    const inlineContent = reference.content
+    if (inlineContent) {
+      const resolved: ResolvedRuleReference = {
+        content: inlineContent,
+        targetPath: reference.path || 'docs/unnamed.md',
+      }
+      if (reference.title)
+        resolved.title = reference.title
+      resolvedReferences.push(resolved)
+      continue
+    }
+
+    if (!reference.path)
+      continue
+
     assertSafeReferencePath(reference.path)
 
     const matches = hasGlob(reference.path)

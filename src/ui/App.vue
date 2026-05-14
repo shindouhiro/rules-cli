@@ -40,13 +40,14 @@ async function fetchData() {
   }
 }
 
-async function handleApply(ruleNames: string[], agentIds: string[], isGlobal: boolean) {
+async function handleApply(ruleNames: string[], agentIds: string[], isGlobal: boolean, rulePaths: string[] = []) {
   try {
     const res = await fetch('/api/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ruleNames,
+        rulePaths,
         agents: agentIds,
         global: isGlobal,
         force: true,
@@ -110,18 +111,7 @@ async function handleRemoveApplied(item: any) {
   if (!confirm(`确定将规则 ${item.name} 从 ${item.agentName} 映射中解除绑定吗？`))
     return
   try {
-    const res = await fetch('/api/remove', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: item.name,
-        agentId: item.agentId,
-        scope: item.scope,
-        type: item.type,
-        path: item.path,
-      }),
-    })
-    const json = await res.json()
+    const json = await removeAppliedItem(item)
     if (json.success) {
       showToast('映射解绑卸载成功')
       fetchData()
@@ -133,6 +123,54 @@ async function handleRemoveApplied(item: any) {
   catch (err: any) {
     showToast(`网络错误: ${err.message}`, 'error')
   }
+}
+
+async function removeAppliedItem(item: any) {
+  const res = await fetch('/api/remove', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: item.name,
+      agentId: item.agentId,
+      scope: item.scope,
+      type: item.type,
+      path: item.path,
+    }),
+  })
+  return await res.json()
+}
+
+async function handleRemoveManyApplied(items: any[]) {
+  if (items.length === 0)
+    return
+
+  const preview = items.slice(0, 4).map(item => `${item.name} / ${item.agentName}`).join('\n')
+  const suffix = items.length > 4 ? `\n... 另有 ${items.length - 4} 条` : ''
+  // eslint-disable-next-line no-alert
+  if (!confirm(`确定批量解除 ${items.length} 条生效映射吗？\n\n${preview}${suffix}`))
+    return
+
+  let successCount = 0
+  let failCount = 0
+  for (const item of items) {
+    try {
+      const json = await removeAppliedItem(item)
+      if (json.success)
+        successCount++
+      else
+        failCount++
+    }
+    catch {
+      failCount++
+    }
+  }
+
+  if (failCount > 0)
+    showToast(`批量删除完成：成功 ${successCount} 条，失败 ${failCount} 条`, 'error')
+  else
+    showToast(`已删除 ${successCount} 条生效映射`)
+
+  fetchData()
 }
 
 function handleOpenEdit(rule: any) {
@@ -304,7 +342,7 @@ onMounted(() => {
         <section class="p-5 sm:p-8">
           <StoreView v-if="currentTab === 'store'" :rules="rules" :agents="agents" :loading="loading" @apply="handleApply" @edit="handleOpenEdit" @delete="handleDeleteStoreRule" />
 
-          <AppliedView v-if="currentTab === 'applied'" :applied="applied" :loading="loading" @remove="handleRemoveApplied" />
+          <AppliedView v-if="currentTab === 'applied'" :applied="applied" :loading="loading" @remove="handleRemoveApplied" @remove-many="handleRemoveManyApplied" />
 
           <RemoteView v-if="currentTab === 'remote'" @install="handleInstallRemote" @create="handleCreateRule" />
         </section>

@@ -9,7 +9,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'apply', ruleNames: string[], agentIds: string[], isGlobal: boolean): void
+  (e: 'apply', ruleNames: string[], agentIds: string[], isGlobal: boolean, rulePaths?: string[]): void
   (e: 'edit', rule: any): void
   (e: 'delete', rule: any): void
 }>()
@@ -30,11 +30,30 @@ const filteredRules = computed(() => {
   )
 })
 
+const filteredRulePaths = computed(() => filteredRules.value.map(rule => rule.path))
+const selectedFilteredCount = computed(() => filteredRulePaths.value.filter(path => selectedRulePaths.value.includes(path)).length)
+const allFilteredSelected = computed(() => filteredRules.value.length > 0 && selectedFilteredCount.value === filteredRules.value.length)
+const selectedRules = computed(() => props.rules.filter(rule => selectedRulePaths.value.includes(rule.path)))
+const hasSelection = computed(() => selectedRulePaths.value.length > 0)
+
 function toggleSelectRule(path: string) {
   const idx = selectedRulePaths.value.indexOf(path)
   if (idx > -1)
     selectedRulePaths.value.splice(idx, 1)
   else selectedRulePaths.value.push(path)
+}
+
+function toggleSelectFilteredRules() {
+  if (allFilteredSelected.value) {
+    selectedRulePaths.value = selectedRulePaths.value.filter(path => !filteredRulePaths.value.includes(path))
+    return
+  }
+
+  selectedRulePaths.value = [...new Set([...selectedRulePaths.value, ...filteredRulePaths.value])]
+}
+
+function clearSelectedRules() {
+  selectedRulePaths.value = []
 }
 
 function toggleSelectAgent(id: string) {
@@ -47,12 +66,15 @@ function toggleSelectAgent(id: string) {
 function executeApply() {
   if (selectedRulePaths.value.length === 0 || selectedAgents.value.length === 0)
     return
-  const selectedNames = props.rules
-    .filter(rule => selectedRulePaths.value.includes(rule.path))
-    .map(rule => rule.name)
-  emit('apply', selectedNames, selectedAgents.value, applyScopeGlobal.value)
+  const selectedNames = selectedRules.value.map(rule => rule.name)
+  emit('apply', selectedNames, selectedAgents.value, applyScopeGlobal.value, selectedRulePaths.value)
   selectedRulePaths.value = []
 }
+
+watch(() => props.rules, () => {
+  const livePaths = new Set(props.rules.map(rule => rule.path))
+  selectedRulePaths.value = selectedRulePaths.value.filter(path => livePaths.has(path))
+}, { deep: true })
 
 watch(() => props.agents, (newAgents) => {
   if (newAgents.length > 0 && selectedAgents.value.length === 0) {
@@ -69,6 +91,31 @@ watch(() => props.agents, (newAgents) => {
       <Icon icon="ph:magnifying-glass-duotone" class="absolute left-4 top-4 text-xl text-slate-500" aria-hidden="true" />
     </div>
 
+    <div v-if="!loading && filteredRules.length > 0" class="glass-card rounded-2xl p-4">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-400">
+            批量选择规则库
+          </p>
+          <p class="mt-1 text-xs text-slate-500">
+            当前筛选 <span class="font-mono text-slate-300">{{ filteredRules.length }}</span> 条，已选 <span class="font-mono text-cyan-300">{{ selectedRulePaths.length }}</span> 条。
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button class="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500" :class="allFilteredSelected ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-200' : 'border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:text-slate-200'" @click="toggleSelectFilteredRules">
+            <span class="flex h-4 w-4 items-center justify-center rounded border transition-colors" :class="allFilteredSelected ? 'border-cyan-400 bg-cyan-400 text-slate-950' : 'border-slate-700 bg-slate-900'">
+              <Icon v-if="allFilteredSelected" icon="ph:check-bold" class="text-[11px]" aria-hidden="true" />
+            </span>
+            {{ allFilteredSelected ? '取消当前筛选' : '全选当前筛选' }}
+          </button>
+          <button v-if="hasSelection" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/70 px-3 text-xs font-medium text-slate-400 transition-colors hover:border-slate-700 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500" @click="clearSelectedRules">
+            <Icon icon="ph:x-bold" class="text-sm" aria-hidden="true" />
+            清空选择
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="loading" class="py-20 text-center text-slate-500 text-xs">
       正在扫描规则库空间…
     </div>
@@ -76,11 +123,13 @@ watch(() => props.agents, (newAgents) => {
       未发现匹配规则空间清单
     </div>
     <div v-else class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-      <div v-for="rule in filteredRules" :key="rule.path" class="glass-card group relative flex flex-col justify-between rounded-3xl p-6 transition duration-200 hover:-translate-y-0.5 hover:border-slate-600 hover:shadow-brand-500/10" :class="selectedRulePaths.includes(rule.path) ? 'ring-2 ring-brand-500 border-transparent' : ''">
+      <div v-for="rule in filteredRules" :key="rule.path" class="glass-card group relative flex flex-col justify-between rounded-3xl p-6 transition duration-200 hover:-translate-y-0.5 hover:border-slate-600 hover:shadow-brand-500/10" :class="selectedRulePaths.includes(rule.path) ? 'border-cyan-500/45 bg-cyan-950/20 shadow-[0_0_0_1px_rgba(34,211,238,0.08)]' : ''">
         <div>
           <div class="flex items-start justify-between mb-2">
-            <div class="flex items-center space-x-2 cursor-pointer" @click="toggleSelectRule(rule.path)">
-              <input type="checkbox" :checked="selectedRulePaths.includes(rule.path)" aria-label="选中规则" class="rounded bg-slate-900 border-slate-700 text-brand-500 focus-visible:ring-brand-500 focus-visible:outline-none mt-0.5 cursor-pointer">
+            <div class="flex min-w-0 cursor-pointer items-center gap-2" @click="toggleSelectRule(rule.path)">
+              <button class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500" :class="selectedRulePaths.includes(rule.path) ? 'border-cyan-400 bg-cyan-400 text-slate-950' : 'border-slate-700 bg-slate-950 text-transparent group-hover:border-slate-500'" :aria-pressed="selectedRulePaths.includes(rule.path)" :aria-label="`选择 ${rule.name}`" @click.stop="toggleSelectRule(rule.path)">
+                <Icon icon="ph:check-bold" class="text-xs" aria-hidden="true" />
+              </button>
               <h3 class="text-lg font-semibold tracking-tight text-slate-100 transition-colors group-hover:text-brand-300">
                 {{ rule.name }}
               </h3>
@@ -123,11 +172,19 @@ watch(() => props.agents, (newAgents) => {
     </div>
 
     <!-- 同步操作底栏 -->
-    <div v-if="selectedRulePaths.length > 0" class="sticky bottom-6 glass-card rounded-2xl p-5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 shadow-2xl border-brand-500/40 animate-fade-in">
+    <div v-if="selectedRulePaths.length > 0" class="sticky bottom-6 glass-card rounded-2xl p-5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 shadow-2xl border-cyan-500/40 animate-fade-in">
       <div class="space-y-1">
         <p class="text-xs text-slate-400">
-          已勾选同步下发规则数: <span class="text-brand-400 font-bold text-sm tabular-nums">{{ selectedRulePaths.length }}</span>
+          已勾选同步下发规则数: <span class="text-cyan-400 font-bold text-sm tabular-nums">{{ selectedRulePaths.length }}</span>
         </p>
+        <div class="flex max-w-3xl flex-wrap gap-1.5">
+          <span v-for="rule in selectedRules.slice(0, 6)" :key="rule.path" class="max-w-[13rem] truncate rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-200" :title="rule.name">
+            {{ rule.name }}
+          </span>
+          <span v-if="selectedRules.length > 6" class="rounded-lg border border-slate-800 bg-slate-950 px-2 py-0.5 text-xs text-slate-400">
+            +{{ selectedRules.length - 6 }}
+          </span>
+        </div>
         <div class="flex flex-wrap items-center gap-1.5 pt-1">
           <span class="text-xs text-slate-500">生效通道:</span>
           <button v-for="agent in agents" :key="agent.id" class="px-2.5 py-1 rounded-lg text-xs font-medium border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" :class="selectedAgents.includes(agent.id) ? 'bg-brand-500/20 border-brand-500 text-brand-200' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800'" @click="toggleSelectAgent(agent.id)">

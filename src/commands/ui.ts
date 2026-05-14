@@ -14,7 +14,7 @@ import { createCommand } from '~/commands/create'
 import { AGENTS, resolveAgentPath } from '~/core/agents'
 import { loadConfig } from '~/core/config'
 import { downloadCursorDirectoryRule, searchCursorDirectoryRules } from '~/core/cursor-directory'
-import { removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
+import { extractManagedRuleNames, removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
 import { downloadRule, getSourceKey, searchAllRemoteSources } from '~/core/remote'
 import { getRuleByName, scanStoreRuleEntries } from '~/core/scanner'
 import { printSection } from '~/core/ui'
@@ -108,9 +108,10 @@ function getAppliedRules(cwd: string) {
           continue
         const content = readFileSync(targetPath, 'utf-8')
         const markerStart = agent.injectMarkerStart || '<!-- rules-cli:start -->'
+        const markerEnd = agent.injectMarkerEnd || '<!-- rules-cli:end -->'
         if (!content.includes(markerStart))
           continue
-        const ruleNames = [...content.matchAll(/<!-- rule: (.+?) -->/g)].map(m => m[1])
+        const ruleNames = extractManagedRuleNames(content, markerStart, markerEnd)
         for (const name of ruleNames) {
           result.push({
             name,
@@ -175,10 +176,14 @@ function createReferenceRuleContent(
       const sourceRelativePath = reference.sourcePath
         ? relative(ruleDir, reference.sourcePath).split(sep).join('/')
         : reference.targetPath
-      return [
+      const lines = [
         `  - path: ${sourceRelativePath}`,
         `    title: ${reference.title || sourceRelativePath}`,
-      ].join('\n')
+      ]
+      if (!reference.sourcePath && (reference as any).content) {
+        lines.push(`    content: ${JSON.stringify((reference as any).content)}`)
+      }
+      return lines.join('\n')
     })
     .join('\n')
 

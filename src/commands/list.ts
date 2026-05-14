@@ -4,6 +4,7 @@ import process from 'node:process'
 import consola from 'consola'
 import pc from 'picocolors'
 import { AGENTS, resolveAgentPath } from '~/core/agents'
+import { extractManagedRuleNames } from '~/core/linker'
 import { getStoreDir, listStoreRuleNames } from '~/core/store'
 import { printSection } from '~/core/ui'
 
@@ -118,7 +119,8 @@ function listAppliedScope(scope: ListScope, cwd: string): number {
     }
 
     // 提取注入的规则名称
-    const ruleNames = [...content.matchAll(/<!-- rule: (.+?) -->/g)].map(m => m[1])
+    const markerEnd = agents[0].injectMarkerEnd || '<!-- rules-cli:end -->'
+    const ruleNames = extractManagedRuleNames(content, markerStart, markerEnd)
 
     if (ruleNames.length === 0)
       continue
