@@ -23,6 +23,8 @@
   },
   "files": [
     "LICENSE",
+    "README.en.md",
+    "README.md",
     "dist"
   ],
   "scripts": {
