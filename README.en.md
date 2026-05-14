@@ -29,11 +29,12 @@
 - 🖥️ **Immersive Web Dashboard**: built-in modern Web UI (`rules ui`) powered by Vue 3 SFC and Tailwind CSS, supporting zero-config launch and system default browser integration.
 - 🚀 **Create and apply in one flow**: create rule templates and apply them to selected AI assistants.
 - 📦 **Multi-assistant support**: supports both directory-based rules and single-file injected rules.
+- 🗺️ **Map-style rule entries**: single-file assistants receive a compact entry map while detailed content is synced into `docs/` or another reference directory.
 - 🔗 **Shared by design**: directory-based assistants use symlinks by default, so one rule can be reused across multiple targets.
 - 🔍 **Remote search and download**: supports GitHub rule sources and [cursor.directory](https://cursor.directory/) search/download.
 - 🧭 **Clear scopes**: supports both project-level and global store / applied rules.
 - 🧾 **Manual rules are visible**: `rules list` also shows existing handwritten single-file rules and marks them as manual.
-- 🗑️ **Interactive removal**: remove applied rules or store rules through an interactive selector.
+- 🗑️ **Interactive removal**: remove applied rules or store rules through an interactive selector; empty reference directories are cleaned automatically.
 - 🛠️ **Configurable**: use `.rulesrc` to configure default agents, scope, and remote sources.
 
 ## 🚀 Installation
@@ -150,7 +151,9 @@ rules ui --port 8080
 - **Unified Store View**: displays global and local project rule stores side by side.
 - **Bi-directional Scope Sync**: multi-select and distribute rules instantly to project or global targets.
 - **High-Fidelity Real-time Editor**: live editing drawer for `rule.md` source and frontmatter with direct disk saving.
-- **Mapping Tracker**: visualizes active symlinks/injections and provides single-click unbinding support.
+- **Store Multi-select**: select all filtered rules, clear selection, preview selected rules, and apply batches to one or more assistants with exact project/global rule path matching.
+- **Mapping Tracker with Batch Removal**: visualizes active symlinks/injections, supports multi-select unbinding, and cleans both assistant entry files and referenced docs.
+- **Component Confirmation Dialogs**: deleting store rules, single unbind, and batch unbind use the built-in confirmation dialog instead of the browser native confirm API.
 
 ## 🛠️ Command Reference
 
@@ -275,7 +278,23 @@ references:
 - [Reference](./docs/design-docs/ref-cli.md)
 ```
 
-After `rules apply agent-map --agent codex --project`, `AGENTS.md` receives the entry map and the referenced files are copied relative to the target rule file. When removing the rule, rules-cli only deletes referenced files whose content still matches the store source; files changed by hand are preserved.
+After `rules apply agent-map --agent codex --project`, `AGENTS.md` receives the entry map and the referenced files are copied relative to the target rule file.
+
+For single-file assistants, the injected block stays compact:
+
+```md
+<!-- rules-cli:start -->
+## agent-map
+- [Architecture](./docs/architecture.md)
+- [Development](./docs/development.md)
+<!-- rules-cli:end -->
+```
+
+`rules-cli:start/end` are the managed block boundaries used for reliable updates and removal. Individual rules are no longer wrapped with extra `<!-- rule: ... -->` comments.
+
+If a rule does not declare `references`, single-file assistants still use reference mode automatically: the assistant entry file only receives a `docs/<rule>.md` link, and the original rule body is written to `docs/<rule>.md` in the target project. This prevents long rule bodies from being dumped directly into `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`.
+
+When removing the rule, rules-cli only deletes referenced files whose content still matches the store source; files changed by hand are preserved. After referenced files are removed, empty directories are pruned as well. For example, an empty `docs/design-docs/` directory is removed, and `docs/` is also removed if it becomes empty.
 
 `referencesDir` controls the target directory for referenced files and defaults to `docs`. When set to `ai-rules` or another safe relative directory, referenced files are written under that directory and map links point there. If a source path already starts with `docs/`, that source prefix is stripped when switching directories, so `docs/architecture.md` becomes `ai-rules/architecture.md`.
 
