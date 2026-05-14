@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Icon } from '@iconify/vue'
 import { ref, watch } from 'vue'
 
 const props = defineProps<{
@@ -116,7 +117,7 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
     <div class="glass-card w-full max-w-5xl rounded-2xl overflow-hidden flex flex-col max-h-[85vh] border-slate-700 shadow-2xl">
       <div class="px-5 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
         <div class="flex items-center space-x-2 truncate">
-          <span class="text-brand-400">✏️</span>
+          <Icon icon="ph:pencil-simple-duotone" class="text-brand-400 text-lg shrink-0" />
           <h3 class="text-sm font-semibold text-slate-200 truncate">
             实时在线编辑源码: <span class="text-white font-mono">{{ rule?.name }}</span>
           </h3>
@@ -124,8 +125,8 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
             {{ rule?.path }}
           </span>
         </div>
-        <button class="text-slate-500 hover:text-slate-300 transition-colors p-1" @click="emit('close')">
-          ✕
+        <button class="text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors p-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500" aria-label="关闭" @click="emit('close')">
+          <Icon icon="ph:x-bold" />
         </button>
       </div>
       <div class="p-4 flex-1 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 overflow-hidden bg-slate-950">
@@ -158,40 +159,52 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
           </div>
           <label class="mb-2 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-[11px] text-slate-400">
             <span class="shrink-0">引用目录</span>
-            <input v-model="referencesDir" class="min-w-0 flex-1 bg-transparent font-mono text-cyan-200 outline-none" placeholder="docs">
+            <input v-model="referencesDir" name="references-dir" autocomplete="off" spellcheck="false" class="min-w-0 flex-1 bg-transparent font-mono text-cyan-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded" placeholder="docs">
           </label>
-          <textarea :value="getActiveContent()" class="w-full flex-1 resize-none rounded-xl border border-slate-800 bg-slate-900/90 p-3 text-xs leading-relaxed text-slate-200 transition-colors focus:border-brand-500 focus:outline-none" @input="setActiveContent(($event.target as HTMLTextAreaElement).value)" />
+          <textarea :value="getActiveContent()" name="rule-content" autocomplete="off" spellcheck="false" aria-label="编辑源码" class="w-full flex-1 resize-none rounded-xl border border-slate-800 bg-slate-900/90 p-3 text-xs leading-relaxed text-slate-200 transition-colors focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-500" @input="setActiveContent(($event.target as HTMLTextAreaElement).value)" />
         </section>
       </div>
-      <div class="border-t border-slate-800 bg-slate-900 px-5 py-3">
-        <div class="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div class="flex flex-wrap items-center gap-1.5">
-            <span class="mr-1 text-[11px] text-slate-500">生成到 Agents</span>
-            <button v-for="agent in agents" :key="agent.id" class="rounded-lg border px-2.5 py-1 text-xs transition-colors" :class="selectedAgents.includes(agent.id) ? 'border-brand-500 bg-brand-500/20 text-brand-100' : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200'" @click="toggleAgent(agent.id)">
-              {{ agent.name }}
-            </button>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="rounded-xl border border-slate-800 bg-slate-950 p-1">
-              <button class="rounded-lg px-2.5 py-1 text-xs transition-colors" :class="!applyScopeGlobal ? 'bg-slate-800 text-brand-300' : 'text-slate-500'" @click="applyScopeGlobal = false">
-                项目级
-              </button>
-              <button class="rounded-lg px-2.5 py-1 text-xs transition-colors" :class="applyScopeGlobal ? 'bg-slate-800 text-purple-300' : 'text-slate-500'" @click="applyScopeGlobal = true">
-                全局级
+      <div class="border-t border-slate-800 bg-slate-900/50 p-5">
+        <div class="bg-slate-950 rounded-xl border border-slate-800/80 p-3 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 shadow-inner">
+          <div class="flex flex-col gap-2.5">
+            <div class="flex items-center gap-1.5 px-1">
+              <Icon icon="ph:robot-duotone" class="text-brand-400 text-sm" />
+              <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">目标智能体 (Agents)</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button v-for="agent in agents" :key="agent.id" class="rounded-lg border px-3 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" :class="selectedAgents.includes(agent.id) ? 'border-brand-500 bg-brand-500/10 text-brand-300 shadow-sm shadow-brand-500/10' : 'border-slate-800 bg-slate-900 text-slate-500 hover:text-slate-300 hover:bg-slate-800'" @click="toggleAgent(agent.id)">
+                {{ agent.name }}
               </button>
             </div>
-            <button :disabled="selectedAgents.length === 0" class="rounded-xl bg-cyan-600 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-cyan-500 disabled:opacity-50" @click="emitApply">
+          </div>
+
+          <div class="flex items-end gap-3 shrink-0">
+            <div class="flex flex-col gap-2">
+              <span class="text-[10px] font-medium text-slate-500 uppercase tracking-wider px-1">作用域级别</span>
+              <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+                <button class="rounded-lg px-3 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 font-medium" :class="!applyScopeGlobal ? 'bg-slate-800 text-brand-400 shadow-sm' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'" @click="applyScopeGlobal = false">
+                  项目级
+                </button>
+                <button class="rounded-lg px-3 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 font-medium" :class="applyScopeGlobal ? 'bg-slate-800 text-purple-400 shadow-sm' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'" @click="applyScopeGlobal = true">
+                  全局级
+                </button>
+              </div>
+            </div>
+            <button :disabled="selectedAgents.length === 0" class="h-[38px] px-4 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 hover:border-cyan-500/30 transition-colors text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500" @click="emitApply">
+              <Icon icon="ph:link-break-duotone" class="text-sm" />
               生成引用
             </button>
           </div>
         </div>
-        <div class="flex items-center justify-end space-x-3">
-          <button class="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-slate-200 transition-colors" @click="emit('close')">
-            放弃修改
+
+        <div class="flex items-center justify-between px-1">
+          <button class="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 rounded p-1" @click="emit('close')">
+            <Icon icon="ph:x-circle-duotone" class="text-sm" /> 放弃修改并关闭
           </button>
-          <button :disabled="saving" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-1.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 flex items-center space-x-1" @click="handleSave">
-            <span v-if="saving" class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span>立即保存回写至磁盘文件</span>
+          <button :disabled="saving" class="h-9 px-5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-brand-500/20 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900" @click="handleSave">
+            <Icon v-if="saving" icon="ph:spinner-gap" class="animate-spin text-sm" />
+            <Icon v-else icon="ph:floppy-disk-duotone" class="text-sm" />
+            保存源码文件
           </button>
         </div>
       </div>

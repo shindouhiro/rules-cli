@@ -231,7 +231,7 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-slate-950 text-slate-200">
     <!-- 通知 Toast -->
-    <div v-if="toast.show" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 flex items-center space-x-2 px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md border" :class="toast.type === 'success' ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200' : 'bg-rose-950/90 border-rose-500/30 text-rose-200'">
+    <div v-if="toast.show" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 transition flex items-center space-x-2 px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md border" :class="toast.type === 'success' ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200' : 'bg-rose-950/90 border-rose-500/30 text-rose-200'" aria-live="polite">
       <span class="text-sm font-medium">{{ toast.message }}</span>
     </div>
 
@@ -257,20 +257,20 @@ onMounted(() => {
           <nav class="grid gap-1 p-3">
             <button class="flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors" :class="currentTab === 'store' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'store'">
               <span>本地规则库</span>
-              <span class="font-mono text-[10px] text-slate-500">{{ rules.length }}</span>
+              <span class="font-mono tabular-nums text-[10px] text-slate-500">{{ rules.length }}</span>
             </button>
             <button class="flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors" :class="currentTab === 'applied' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'applied'">
               <span>生效映射</span>
-              <span class="font-mono text-[10px] text-slate-500">{{ applied.length }}</span>
+              <span class="font-mono tabular-nums text-[10px] text-slate-500">{{ applied.length }}</span>
             </button>
             <button class="flex items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors" :class="currentTab === 'remote' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'remote'">
               <span>远程与新建</span>
-              <span class="font-mono text-[10px] text-slate-500">+</span>
+              <span class="font-mono tabular-nums text-[10px] text-slate-500">+</span>
             </button>
           </nav>
 
           <div class="mt-auto border-t border-slate-800 p-3">
-            <button class="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-400 transition-colors hover:border-slate-700 hover:text-slate-200" @click="fetchData">
+            <button class="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-400 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" @click="fetchData">
               重新载入发现
             </button>
           </div>

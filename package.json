@@ -40,6 +40,7 @@
   },
   "dependencies": {
     "@clack/prompts": "catalog:prod",
+    "@iconify/vue": "catalog:prod",
     "cac": "catalog:prod",
     "consola": "catalog:prod",
     "ofetch": "catalog:prod",
