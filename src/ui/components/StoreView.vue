@@ -100,9 +100,25 @@ watch(() => props.rules, () => {
   selectedRulePaths.value = selectedRulePaths.value.filter(path => livePaths.has(path))
 }, { deep: true })
 
+function matchAgent(agents: any[], id: string) {
+  if (!id)
+    return null
+  const exact = agents.find(agent => agent.id === id)
+  if (exact)
+    return exact
+  const normalizedId = id.toLowerCase().replace(/\s+/g, '-')
+  const normalizedMatch = agents.find(agent => agent.id === normalizedId)
+  if (normalizedMatch)
+    return normalizedMatch
+  const nameMatch = agents.find(agent => agent.name.toLowerCase() === id.toLowerCase())
+  return nameMatch || null
+}
+
 watch(() => props.agents, (newAgents) => {
   if (newAgents.length > 0 && selectedAgents.value.length === 0) {
-    const liveDefaultAgentIds = (props.defaultAgentIds || []).filter(id => newAgents.some(agent => agent.id === id))
+    const liveDefaultAgentIds = (props.defaultAgentIds || [])
+      .map(id => matchAgent(newAgents, id)?.id)
+      .filter((id): id is string => !!id)
     if (liveDefaultAgentIds.length > 0) {
       selectedAgents.value = liveDefaultAgentIds
       return
@@ -114,7 +130,9 @@ watch(() => props.agents, (newAgents) => {
 }, { immediate: true })
 
 watch(() => props.defaultAgentIds, (defaultAgentIds) => {
-  const liveDefaultAgentIds = (defaultAgentIds || []).filter(id => props.agents.some(agent => agent.id === id))
+  const liveDefaultAgentIds = (defaultAgentIds || [])
+    .map(id => matchAgent(props.agents, id)?.id)
+    .filter((id): id is string => !!id)
   if (liveDefaultAgentIds.length > 0)
     selectedAgents.value = liveDefaultAgentIds
 }, { deep: true })

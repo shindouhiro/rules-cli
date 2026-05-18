@@ -36,10 +36,26 @@ const selectedAgents = ref<string[]>([])
 const applyScopeGlobal = ref(false)
 const saving = ref(false)
 
+function matchAgent(agents: any[], id: string) {
+  if (!id)
+    return null
+  const exact = agents.find(agent => agent.id === id)
+  if (exact)
+    return exact
+  const normalizedId = id.toLowerCase().replace(/\s+/g, '-')
+  const normalizedMatch = agents.find(agent => agent.id === normalizedId)
+  if (normalizedMatch)
+    return normalizedMatch
+  const nameMatch = agents.find(agent => agent.name.toLowerCase() === id.toLowerCase())
+  return nameMatch || null
+}
+
 function getDefaultSelectedAgentIds(agents: any[], defaultAgentIds: string[] = []): string[] {
   if (agents.length === 0)
     return []
-  const liveDefaultAgentIds = defaultAgentIds.filter(id => agents.some(agent => agent.id === id))
+  const liveDefaultAgentIds = defaultAgentIds
+    .map(id => matchAgent(agents, id)?.id)
+    .filter((id): id is string => !!id)
   if (liveDefaultAgentIds.length > 0)
     return liveDefaultAgentIds
   const claudeAgent = agents.find(agent => agent.id === 'claude-code')

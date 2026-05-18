@@ -45,6 +45,18 @@ describe('agents', () => {
       expect(agent!.name).toBe('Cursor')
     })
 
+    it('支持带有空格的 ID 匹配', () => {
+      const agent = getAgentById('claude code')
+      expect(agent).toBeDefined()
+      expect(agent!.id).toBe('claude-code')
+    })
+
+    it('支持大小写不敏感的名字匹配', () => {
+      const agent = getAgentById('Claude Code')
+      expect(agent).toBeDefined()
+      expect(agent!.id).toBe('claude-code')
+    })
+
     it('查找不存在的 agent 返回 undefined', () => {
       expect(getAgentById('nonexistent')).toBeUndefined()
     })

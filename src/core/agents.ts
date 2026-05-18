@@ -108,7 +108,19 @@ const AGENTS_BY_ID = new Map(AGENTS.map(agent => [agent.id, agent]))
  * 按 ID 查找 agent
  */
 export function getAgentById(id: string): AgentRulesDef | undefined {
-  return AGENTS_BY_ID.get(id)
+  if (!id)
+    return undefined
+
+  const exact = AGENTS_BY_ID.get(id)
+  if (exact)
+    return exact
+
+  const normalizedId = id.toLowerCase().replace(/\s+/g, '-')
+  const normalizedMatch = AGENTS_BY_ID.get(normalizedId)
+  if (normalizedMatch)
+    return normalizedMatch
+
+  return AGENTS.find(agent => agent.name.toLowerCase() === id.toLowerCase())
 }
 
 /**
