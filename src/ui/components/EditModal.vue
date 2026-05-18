@@ -15,6 +15,7 @@ const props = defineProps<{
   show: boolean
   rule: any
   agents: any[]
+  defaultAgentIds?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -35,9 +36,12 @@ const selectedAgents = ref<string[]>([])
 const applyScopeGlobal = ref(false)
 const saving = ref(false)
 
-function getDefaultSelectedAgentIds(agents: any[]): string[] {
+function getDefaultSelectedAgentIds(agents: any[], defaultAgentIds: string[] = []): string[] {
   if (agents.length === 0)
     return []
+  const liveDefaultAgentIds = defaultAgentIds.filter(id => agents.some(agent => agent.id === id))
+  if (liveDefaultAgentIds.length > 0)
+    return liveDefaultAgentIds
   const claudeAgent = agents.find(agent => agent.id === 'claude-code')
   return [claudeAgent?.id || agents[0].id]
 }
@@ -48,7 +52,7 @@ watch(() => props.rule, (newRule) => {
     activeFile.value = 'rule.md'
     referencesDir.value = newRule.meta?.referencesDir || 'docs'
     applyScopeGlobal.value = !!newRule.isGlobal
-    selectedAgents.value = getDefaultSelectedAgentIds(props.agents)
+    selectedAgents.value = getDefaultSelectedAgentIds(props.agents, props.defaultAgentIds || [])
     referenceError.value = ''
     newReferencePath.value = ''
     editableReferences.value = (newRule.references || []).map((reference: any) => ({
@@ -63,8 +67,13 @@ watch(() => props.rule, (newRule) => {
 
 watch(() => props.agents, (agents) => {
   if (agents.length > 0 && selectedAgents.value.length === 0)
-    selectedAgents.value = getDefaultSelectedAgentIds(agents)
+    selectedAgents.value = getDefaultSelectedAgentIds(agents, props.defaultAgentIds || [])
 }, { immediate: true })
+
+watch(() => props.defaultAgentIds, (defaultAgentIds) => {
+  if (props.show)
+    selectedAgents.value = getDefaultSelectedAgentIds(props.agents, defaultAgentIds || [])
+}, { deep: true })
 
 function getActiveContent() {
   if (activeFile.value === 'rule.md')

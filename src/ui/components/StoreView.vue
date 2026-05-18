@@ -6,6 +6,7 @@ const props = defineProps<{
   rules: any[]
   agents: any[]
   loading: boolean
+  defaultAgentIds?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -101,10 +102,22 @@ watch(() => props.rules, () => {
 
 watch(() => props.agents, (newAgents) => {
   if (newAgents.length > 0 && selectedAgents.value.length === 0) {
-    const claudeAgent = newAgents.find(a => a.id === 'claude-code')
+    const liveDefaultAgentIds = (props.defaultAgentIds || []).filter(id => newAgents.some(agent => agent.id === id))
+    if (liveDefaultAgentIds.length > 0) {
+      selectedAgents.value = liveDefaultAgentIds
+      return
+    }
+
+    const claudeAgent = newAgents.find(agent => agent.id === 'claude-code')
     selectedAgents.value = [claudeAgent?.id || newAgents[0].id]
   }
 }, { immediate: true })
+
+watch(() => props.defaultAgentIds, (defaultAgentIds) => {
+  const liveDefaultAgentIds = (defaultAgentIds || []).filter(id => props.agents.some(agent => agent.id === id))
+  if (liveDefaultAgentIds.length > 0)
+    selectedAgents.value = liveDefaultAgentIds
+}, { deep: true })
 </script>
 
 <template>

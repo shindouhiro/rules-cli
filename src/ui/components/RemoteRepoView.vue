@@ -1,15 +1,31 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
+import CustomSelect from './CustomSelect.vue'
 
-defineEmits<{
-  (e: 'install', name: string, source: string, isGlobal: boolean): void
+interface ConfigMeta {
+  projectConfigPath?: string
+  globalConfigPath?: string
+  effectiveConfigPath?: string
+  effectiveConfigScope?: 'project' | 'global'
+}
+
+const props = defineProps<{
+  configMeta?: ConfigMeta
 }>()
+
+const emit = defineEmits<{
+  (e: 'install', name: string, source: string, isGlobal: boolean): void
+  (e: 'configUpdated'): void
+}>()
+
+const CodeEditor = defineAsyncComponent(() => import('./CodeEditor.vue'))
 
 interface ManagedRepo {
   url: string
   branch: string
   path: string
+  name?: string
 }
 
 interface RemoteRuleResult {
@@ -32,15 +48,42 @@ const form = ref({
   url: '',
   branch: 'main',
   path: 'rules',
+  name: '',
   keyword: '',
 })
-const state = ref({ loading: false, deleting: '', error: '', message: '' })
+const configScope = ref<'project' | 'global'>(props.configMeta?.effectiveConfigScope === 'global' ? 'global' : 'project')
+const configPath = ref('')
+const configJson = ref('')
+const state = ref({ loading: false, saving: false, deleting: '', error: '', message: '' })
 const rules = ref<RemoteRuleResult[]>([])
 const pendingDeleteRule = ref('')
 const pendingDeleteRepo = ref('')
 
 const hasRepos = computed(() => repos.value.length > 0)
 const canLoad = computed(() => !!form.value.url.trim())
+const effectiveConfigPath = computed(() => props.configMeta?.effectiveConfigPath || '')
+const hasProjectConfigOverride = computed(() => configScope.value === 'global' && !!props.configMeta?.projectConfigPath)
+const configLocationHint = computed(() => {
+  if (!effectiveConfigPath.value)
+    return '当前未发现已生效配置，保存项目配置后会立即对当前项目生效。'
+  return `当前生效配置：${effectiveConfigPath.value}`
+})
+const configScopeOptions = [
+  { label: '全局配置', value: 'global', description: '~/.config/rules-cli/.rulesrc' },
+  { label: '项目配置', value: 'project', description: '当前项目 .rulesrc' },
+]
+const repoOptions = computed(() => [
+  {
+    label: hasRepos.value ? '选择已保存仓库' : '暂无已保存仓库',
+    value: '',
+    disabled: !hasRepos.value,
+  },
+  ...repos.value.map(repo => ({
+    label: repo.name || repo.url,
+    value: repo.url,
+    description: `${repo.branch} · ${repo.path || '.'}`,
+  })),
+])
 
 interface RemoteRulesCacheEntry {
   cachedAt: number
@@ -52,6 +95,7 @@ function normalizeRepo(repo: ManagedRepo): ManagedRepo {
     url: repo.url.trim(),
     branch: repo.branch.trim() || 'main',
     path: repo.path.trim() || 'rules',
+    name: repo.name?.trim() || undefined,
   }
 }
 
@@ -66,6 +110,7 @@ function loadRepos() {
             url: String(item.url),
             branch: String(item.branch || 'main'),
             path: String(item.path || 'rules'),
+            name: item.name ? String(item.name) : undefined,
           }))
       : []
   }
@@ -76,6 +121,151 @@ function loadRepos() {
 
 function saveRepos() {
   localStorage.setItem(MANAGED_REPOS_STORAGE_KEY, JSON.stringify(repos.value))
+}
+
+function repoFromSource(source: any): ManagedRepo | undefined {
+  const url = String(source?.url || source?.repo || '').trim()
+  if (!url)
+    return undefined
+  return normalizeRepo({
+    url,
+    branch: String(source.branch || 'main'),
+    path: String(source.subPath || 'rules'),
+    name: source.name ? String(source.name) : undefined,
+  })
+}
+
+function sourceFromRepo(repo: ManagedRepo) {
+  const normalized = normalizeRepo(repo)
+  const isGitUrl = /^(?:[\w.-]+@[\w.-]+:.+\.git|(?:https?|ssh|git):\/\/|file:\/\/|\/|\.\.?\/)/u.test(normalized.url)
+  return {
+    ...(isGitUrl ? { type: 'git', url: normalized.url } : { type: 'github', repo: normalized.url }),
+    ...(normalized.name ? { name: normalized.name } : {}),
+    ...(normalized.branch ? { branch: normalized.branch } : {}),
+    ...(normalized.path ? { subPath: normalized.path } : {}),
+  }
+}
+
+function syncReposFromConfigJson(raw: string) {
+  try {
+    const parsed = JSON.parse(raw)
+    const nextRepos = Array.isArray(parsed.sources)
+      ? parsed.sources.map(repoFromSource).filter((repo): repo is ManagedRepo => !!repo)
+      : []
+    repos.value = nextRepos
+    saveRepos()
+    if (nextRepos.length > 0) {
+      void selectRepo(nextRepos[0].url)
+      return
+    }
+
+    form.value.url = ''
+    form.value.name = ''
+    rules.value = []
+  }
+  catch {}
+}
+
+async function loadConfigSources() {
+  state.value = { ...state.value, error: '', message: '' }
+  try {
+    const res = await fetch(`/api/config-sources?scope=${configScope.value}`)
+    const json = await res.json()
+    if (!json.success)
+      throw new Error(json.message || '远程源配置读取失败')
+
+    configPath.value = json.data.path || ''
+    await loadConfigFileContent()
+    const configRepos = Array.isArray(json.data.sources)
+      ? json.data.sources.map(repoFromSource).filter((repo): repo is ManagedRepo => !!repo)
+      : []
+    if (configRepos.length > 0) {
+      repos.value = configRepos
+      void selectRepo(configRepos[0].url)
+      return
+    }
+
+    loadRepos()
+    if (repos.value[0])
+      void selectRepo(repos.value[0].url)
+  }
+  catch (err: any) {
+    state.value.error = err.message || String(err)
+    loadRepos()
+  }
+}
+
+async function loadConfigFileContent() {
+  try {
+    const res = await fetch(`/api/config-file?scope=${configScope.value}`)
+    const json = await res.json()
+    if (!json.success)
+      throw new Error(json.message || '.rulesrc JSON 读取失败')
+    configPath.value = json.data.path || configPath.value
+    configJson.value = json.data.content || ''
+  }
+  catch (err: any) {
+    state.value.error = err.message || String(err)
+  }
+}
+
+async function saveConfigJson() {
+  state.value = { ...state.value, saving: true, error: '', message: '' }
+  try {
+    const res = await fetch('/api/config-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scope: configScope.value,
+        content: configJson.value,
+      }),
+    })
+    const json = await res.json()
+    if (!json.success)
+      throw new Error(json.message || '.rulesrc JSON 保存失败')
+    configPath.value = json.data.path || configPath.value
+    configJson.value = json.data.content || configJson.value
+    state.value.message = json.message || '.rulesrc JSON 已保存'
+    syncReposFromConfigJson(configJson.value)
+    emit('configUpdated')
+  }
+  catch (err: any) {
+    state.value.error = err.message || String(err)
+  }
+  finally {
+    state.value.saving = false
+  }
+}
+
+async function saveConfigSources(nextRepos = repos.value) {
+  state.value = { ...state.value, saving: true, error: '', message: '' }
+  try {
+    const res = await fetch('/api/config-sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scope: configScope.value,
+        sources: nextRepos.map(sourceFromRepo),
+      }),
+    })
+    const json = await res.json()
+    if (!json.success)
+      throw new Error(json.message || '远程源配置保存失败')
+    configPath.value = json.data.path || configPath.value
+    repos.value = Array.isArray(json.data.sources)
+      ? json.data.sources.map(repoFromSource).filter((repo): repo is ManagedRepo => !!repo)
+      : nextRepos
+    saveRepos()
+    await loadConfigFileContent()
+    state.value.message = json.message || '远程源配置已保存'
+    emit('configUpdated')
+  }
+  catch (err: any) {
+    state.value.error = err.message || String(err)
+  }
+  finally {
+    state.value.saving = false
+  }
 }
 
 function getRemoteRulesCacheKey(): string {
@@ -140,6 +330,7 @@ async function selectRepo(url: string) {
   form.value.url = repo.url
   form.value.branch = repo.branch
   form.value.path = repo.path
+  form.value.name = repo.name || ''
   pendingDeleteRepo.value = ''
   await loadRemoteRules({ persist: false })
 }
@@ -149,6 +340,7 @@ async function saveCurrentRepo() {
     return
 
   upsertCurrentRepo()
+  await saveConfigSources()
   await loadRemoteRules({ persist: false, savedMessage: '仓库配置已保存并已自动读取' })
 }
 
@@ -157,6 +349,7 @@ function upsertCurrentRepo() {
     url: form.value.url,
     branch: form.value.branch,
     path: form.value.path,
+    name: form.value.name,
   })
   repos.value = [repo, ...repos.value.filter(item => item.url !== repo.url)]
 }
@@ -173,9 +366,12 @@ function removeRepo(url: string) {
   }
 
   pendingDeleteRepo.value = ''
-  repos.value = repos.value.filter(item => item.url !== url)
+  const nextRepos = repos.value.filter(item => item.url !== url)
+  repos.value = nextRepos
+  void saveConfigSources(nextRepos)
   if (form.value.url === url) {
     form.value.url = ''
+    form.value.name = ''
     rules.value = []
   }
 }
@@ -269,14 +465,18 @@ async function deleteRemoteRule(rule: RemoteRuleResult) {
 }
 
 onMounted(() => {
-  loadRepos()
-  if (repos.value[0])
-    void selectRepo(repos.value[0].url)
+  void loadConfigSources()
 })
 
 watch(repos, () => {
   saveRepos()
 }, { deep: true })
+
+watch(configScope, () => {
+  repos.value = []
+  rules.value = []
+  void loadConfigSources()
+})
 </script>
 
 <template>
@@ -289,32 +489,87 @@ watch(repos, () => {
             <span>远程仓库 Rules 管理</span>
           </h3>
           <p class="text-xs leading-relaxed text-slate-400">
-            管理你保存的远程仓库，读取仓库中的 rules，并删除不需要的远程规则。
+            管理 .rulesrc 中的远程仓库 sources，读取仓库中的 rules，并删除不需要的远程规则。
+          </p>
+          <p v-if="configPath" class="mt-1 truncate font-mono text-[11px] text-slate-500">
+            {{ configPath }}
+          </p>
+          <p class="mt-1 truncate font-mono text-[11px] text-cyan-300/80" :title="configLocationHint">
+            {{ configLocationHint }}
           </p>
         </div>
         <button
-          :disabled="!form.url.trim()"
+          :disabled="!form.url.trim() || state.saving"
           class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 transition hover:bg-slate-800 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-          title="保存当前仓库并读取"
-          aria-label="保存当前仓库并读取"
+          :title="state.saving ? '正在保存远程源配置' : '保存当前仓库到 .rulesrc 并读取'"
+          :aria-label="state.saving ? '正在保存远程源配置' : '保存当前仓库到 .rulesrc 并读取'"
           @click="saveCurrentRepo"
         >
-          <Icon icon="ph:floppy-disk-duotone" class="text-lg" />
+          <Icon :icon="state.saving ? 'ph:spinner-gap-duotone' : 'ph:floppy-disk-duotone'" class="text-lg" :class="state.saving ? 'animate-spin' : ''" />
         </button>
       </div>
 
-      <div class="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(190px,0.8fr)_minmax(280px,1.4fr)_100px_100px]">
-        <select :value="form.url" name="remote-managed-repo" class="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs text-slate-200 focus-visible:border-cyan-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500" @change="selectRepo(($event.target as HTMLSelectElement).value)">
-          <option value="">
-            {{ hasRepos ? '选择已保存仓库' : '暂无已保存仓库' }}
-          </option>
-          <option v-for="repo in repos" :key="repo.url" :value="repo.url">
-            {{ repo.url }}
-          </option>
-        </select>
-        <input v-model="form.url" type="text" name="remote-repo-url" autocomplete="off" spellcheck="false" placeholder="git@gitlab.com:user/rules.git" class="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 font-mono text-xs text-slate-200 focus-visible:border-cyan-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500">
-        <input v-model="form.branch" type="text" name="remote-repo-branch" autocomplete="off" spellcheck="false" placeholder="main" class="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 font-mono text-xs text-slate-200 focus-visible:border-cyan-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500">
-        <input v-model="form.path" type="text" name="remote-repo-path" autocomplete="off" spellcheck="false" placeholder="rules" class="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 font-mono text-xs text-slate-200 focus-visible:border-cyan-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500">
+      <div class="mt-5 rounded-xl border border-cyan-500/25 bg-cyan-950/15 p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 text-xs font-semibold text-cyan-200">
+              <Icon icon="ph:brackets-curly-duotone" class="text-base" />
+              <span>配置文件编辑：.rulesrc JSON</span>
+            </div>
+            <p class="mt-1 truncate font-mono text-[11px] text-slate-500">
+              {{ configPath || '尚未定位配置文件' }}
+            </p>
+            <p v-if="hasProjectConfigOverride" class="mt-1 flex items-center gap-1.5 text-[11px] text-amber-300">
+              <Icon icon="ph:warning-circle-duotone" class="shrink-0 text-sm" />
+              <span class="min-w-0 truncate">当前项目存在 .rulesrc，会覆盖全局配置中的 defaultAgents 和 sources。</span>
+            </p>
+          </div>
+          <button
+            :disabled="state.saving || !configJson.trim()"
+            class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            :title="state.saving ? '正在保存 .rulesrc JSON' : '保存 .rulesrc JSON'"
+            :aria-label="state.saving ? '正在保存 .rulesrc JSON' : '保存 .rulesrc JSON'"
+            @click="saveConfigJson"
+          >
+            <Icon :icon="state.saving ? 'ph:spinner-gap-duotone' : 'ph:floppy-disk-back-duotone'" class="text-lg" :class="state.saving ? 'animate-spin' : ''" />
+          </button>
+        </div>
+        <div class="h-[360px] min-h-0">
+          <CodeEditor class="h-full" :model-value="configJson" path=".rulesrc.json" language="json" @update:model-value="configJson = $event" />
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-xl border border-slate-800 bg-slate-900/45 p-4">
+        <div class="mb-3 flex items-center gap-2 text-xs font-semibold text-cyan-200">
+          <Icon icon="ph:sliders-horizontal-duotone" class="text-base" />
+          <span>远程源快速配置</span>
+        </div>
+        <div class="grid grid-cols-1 gap-3 lg:grid-cols-[130px_minmax(190px,0.8fr)_minmax(180px,0.9fr)_minmax(280px,1.4fr)_100px_100px]">
+          <label class="space-y-1">
+            <span class="block text-[11px] font-medium text-slate-400">配置位置</span>
+            <CustomSelect id="remote-config-scope-select" v-model="configScope" :options="configScopeOptions" placeholder="选择配置位置" aria-label="配置位置" />
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] font-medium text-slate-400">已保存 source</span>
+            <CustomSelect id="remote-managed-repo-select" :model-value="form.url" :options="repoOptions" placeholder="选择已保存仓库" aria-label="已保存 source" @update:model-value="selectRepo" />
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] font-medium text-slate-400">Source 名称</span>
+            <input v-model="form.name" type="text" name="remote-source-name" autocomplete="off" spellcheck="false" placeholder="team-rules" class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 font-mono text-xs text-slate-200 focus-visible:border-cyan-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500">
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] font-medium text-slate-400">Git 仓库地址</span>
+            <input v-model="form.url" type="text" name="remote-repo-url" autocomplete="off" spellcheck="false" placeholder="git@github.com:user/rules.git" class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 font-mono text-xs text-slate-200 focus-visible:border-cyan-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500">
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] font-medium text-slate-400">分支</span>
+            <input v-model="form.branch" type="text" name="remote-repo-branch" autocomplete="off" spellcheck="false" placeholder="main" class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 font-mono text-xs text-slate-200 focus-visible:border-cyan-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500">
+          </label>
+          <label class="space-y-1">
+            <span class="block text-[11px] font-medium text-slate-400">规则目录</span>
+            <input v-model="form.path" type="text" name="remote-repo-path" autocomplete="off" spellcheck="false" placeholder="rules" class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 font-mono text-xs text-slate-200 focus-visible:border-cyan-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500">
+          </label>
+        </div>
       </div>
 
       <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto]">
@@ -334,7 +589,7 @@ watch(repos, () => {
         <div v-for="repo in repos" :key="repo.url" class="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
           <button class="min-w-0 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500" :title="`选择并读取 ${repo.url}`" :aria-label="`选择并读取 ${repo.url}`" @click="selectRepo(repo.url)">
             <span class="block truncate font-mono text-xs text-slate-200">{{ repo.url }}</span>
-            <span class="mt-0.5 block text-xs text-slate-500">{{ repo.branch }} · {{ repo.path || '.' }}</span>
+            <span class="mt-0.5 block text-xs text-slate-500">{{ repo.name || '未命名 source' }} · {{ repo.branch }} · {{ repo.path || '.' }}</span>
           </button>
           <button
             class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-900/50 text-rose-300 transition hover:bg-rose-950/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"

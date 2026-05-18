@@ -5,12 +5,14 @@ export type NormalizedRuleSource
     type: 'github'
     name?: string
     repo: string
+    branch?: string
     subPath?: string
   }
   | {
     type: 'git'
     name?: string
     url: string
+    branch?: string
     subPath?: string
   }
 
@@ -41,6 +43,7 @@ export function normalizeSource(source: RuleSource | string): NormalizedRuleSour
       type: 'git',
       name: source.name,
       url,
+      branch: source.branch,
       subPath: source.subPath,
     }
   }
@@ -52,6 +55,7 @@ export function normalizeSource(source: RuleSource | string): NormalizedRuleSour
     type: 'github',
     name: source.name,
     repo: source.repo,
+    branch: source.branch,
     subPath: source.subPath,
   }
 }

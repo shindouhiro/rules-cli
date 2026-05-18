@@ -175,7 +175,7 @@ rules ui --port 8080
 - **Bi-directional Scope Sync**: multi-select and distribute rules instantly to project or global targets.
 - **High-Fidelity Real-time Editor**: live editing drawer for `rule.md` source and frontmatter with direct disk saving.
 - **Store Multi-select**: select all filtered rules, clear selection, preview selected rules, and apply batches to one or more assistants with exact project/global rule path matching.
-- **Remote Repository Management**: save Git repository URL, branch, and target path; automatically load remote rules when entering the page or switching repositories; repeat loads use a 24-hour local cache.
+- **Remote Repository Management**: edit project or global `.rulesrc` `sources` from the UI, including Git repository URL, source name, branch, and target path; automatically load remote rules when entering the page or switching repositories; repeat loads use a 24-hour local cache.
 - **Remote Publish and Delete**: upload local rules to a remote Git repository, read remote rules, download them locally, and delete remote rules from the UI; destructive operations require a second confirmation click.
 - **Icon-based Controls**: primary actions use icon-only buttons with hover tooltips and `aria-label` text.
 - **Mapping Tracker with Batch Removal**: visualizes active symlinks/injections, supports multi-select unbinding, and cleans both assistant entry files and referenced docs.

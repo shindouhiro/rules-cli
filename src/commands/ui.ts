@@ -1,5 +1,5 @@
 import type { ServerResponse } from 'node:http'
-import type { RuleInfo } from '~/types'
+import type { RuleInfo, RuleSource } from '~/types'
 import { Buffer } from 'node:buffer'
 import { exec } from 'node:child_process'
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
@@ -13,7 +13,7 @@ import { applyRulesByNames } from '~/commands/apply'
 import { createCommand } from '~/commands/create'
 import { deleteRemoteRuleCommand, publishCommand } from '~/commands/publish'
 import { AGENTS, resolveAgentPath } from '~/core/agents'
-import { loadConfig } from '~/core/config'
+import { findProjectConfigPath, getEffectiveConfigPath, getGlobalConfigPath, getProjectConfigPath, loadConfig, loadConfigFile, saveConfig } from '~/core/config'
 import { downloadCursorDirectoryRule, searchCursorDirectoryRules } from '~/core/cursor-directory'
 import { extractManagedRuleNames, removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
 import { isUnsafeReferencePath } from '~/core/references'
@@ -25,6 +25,8 @@ import { printSection } from '~/core/ui'
 export interface UiOptions {
   port?: number
 }
+
+type ConfigScope = 'project' | 'global'
 
 function openBrowser(url: string) {
   const platform = process.platform
@@ -204,6 +206,32 @@ function createReferenceRuleContent(
   ].join('\n')
 }
 
+function resolveConfigPath(scope: ConfigScope, cwd: string): string {
+  return scope === 'global' ? getGlobalConfigPath() : getProjectConfigPath(cwd)
+}
+
+function normalizeUiSource(source: any): RuleSource | undefined {
+  const rawUrl = String(source?.url || source?.repo || '').trim()
+  if (!rawUrl)
+    return undefined
+
+  const normalized = sourceFromInput(rawUrl)
+  return {
+    ...normalized,
+    name: source?.name ? String(source.name).trim() : undefined,
+    branch: source?.branch ? String(source.branch).trim() : undefined,
+    subPath: source?.subPath ? String(source.subPath).trim() : source?.path ? String(source.path).trim() : undefined,
+  }
+}
+
+function readConfigJsonContent(scope: ConfigScope, cwd: string): { path: string, content: string } {
+  const configPath = resolveConfigPath(scope, cwd)
+  const content = existsSync(configPath)
+    ? readFileSync(configPath, 'utf-8')
+    : `${JSON.stringify(loadConfigFile(configPath), null, 2)}\n`
+  return { path: configPath, content }
+}
+
 export async function uiCommand(options: UiOptions): Promise<void> {
   const port = options.port || 3000
   const cwd = process.cwd()
@@ -234,7 +262,28 @@ export async function uiCommand(options: UiOptions): Promise<void> {
         if (req.method === 'GET' && pathname === '/api/data') {
           const rules = getEnrichedStoreRules(cwd)
           const applied = getAppliedRules(cwd)
-          return jsonResponse({ success: true, data: { rules, agents: AGENTS, applied } })
+          const config = loadConfig(cwd)
+          const projectConfigPath = findProjectConfigPath(cwd)
+          const globalConfigPath = getGlobalConfigPath()
+          const effectiveConfigPath = getEffectiveConfigPath(cwd)
+          const effectiveConfigScope = projectConfigPath
+            ? 'project'
+            : effectiveConfigPath === globalConfigPath ? 'global' : 'project'
+          return jsonResponse({
+            success: true,
+            data: {
+              rules,
+              agents: AGENTS,
+              applied,
+              config,
+              configMeta: {
+                projectConfigPath,
+                globalConfigPath,
+                effectiveConfigPath,
+                effectiveConfigScope,
+              },
+            },
+          })
         }
 
         if (req.method === 'GET' && pathname === '/api/search-remote') {
@@ -264,6 +313,33 @@ export async function uiCommand(options: UiOptions): Promise<void> {
           return jsonResponse({ success: true, data: { results } })
         }
 
+        if (req.method === 'GET' && pathname === '/api/config-sources') {
+          const scope = url.searchParams.get('scope') === 'global' ? 'global' : 'project'
+          const configPath = resolveConfigPath(scope, cwd)
+          const config = loadConfigFile(configPath)
+          return jsonResponse({
+            success: true,
+            data: {
+              scope,
+              path: configPath,
+              sources: config.sources || [],
+            },
+          })
+        }
+
+        if (req.method === 'GET' && pathname === '/api/config-file') {
+          const scope = url.searchParams.get('scope') === 'global' ? 'global' : 'project'
+          const { path, content } = readConfigJsonContent(scope, cwd)
+          return jsonResponse({
+            success: true,
+            data: {
+              scope,
+              path,
+              content,
+            },
+          })
+        }
+
         const getBody = async () => {
           const buffers = []
           for await (const chunk of req) {
@@ -283,6 +359,62 @@ export async function uiCommand(options: UiOptions): Promise<void> {
             rulePaths: Array.isArray(rulePaths) ? rulePaths : undefined,
           })
           return jsonResponse({ success: true, message: '分发同步执行完成' })
+        }
+
+        if (req.method === 'POST' && pathname === '/api/config-sources') {
+          const body = await getBody()
+          const scope = body.scope === 'global' ? 'global' : 'project'
+          const sources = Array.isArray(body.sources)
+            ? (body.sources as unknown[]).map(normalizeUiSource).filter((source: RuleSource | undefined): source is RuleSource => !!source)
+            : []
+          const configPath = resolveConfigPath(scope, cwd)
+          const config = loadConfigFile(configPath)
+          saveConfig({
+            ...config,
+            scope,
+            sources,
+          }, configPath)
+          return jsonResponse({
+            success: true,
+            message: `远程源配置已保存到 ${scope === 'global' ? '全局' : '项目'} .rulesrc`,
+            data: {
+              scope,
+              path: configPath,
+              sources,
+            },
+          })
+        }
+
+        if (req.method === 'POST' && pathname === '/api/config-file') {
+          const body = await getBody()
+          const scope = body.scope === 'global' ? 'global' : 'project'
+          const content = String(body.content || '')
+          let parsed
+          try {
+            parsed = JSON.parse(content)
+          }
+          catch (err: any) {
+            return jsonResponse({ success: false, message: `JSON 解析失败: ${err.message || String(err)}` }, 400)
+          }
+
+          const configPath = resolveConfigPath(scope, cwd)
+          const currentConfig = loadConfigFile(configPath)
+          saveConfig({
+            ...currentConfig,
+            ...parsed,
+            defaultAgents: Array.isArray(parsed.defaultAgents) ? parsed.defaultAgents : currentConfig.defaultAgents,
+            scope: parsed.scope === 'global' || parsed.scope === 'project' ? parsed.scope : scope,
+          }, configPath)
+          const saved = readConfigJsonContent(scope, cwd)
+          return jsonResponse({
+            success: true,
+            message: `.rulesrc JSON 已保存到 ${scope === 'global' ? '全局' : '项目'}配置`,
+            data: {
+              scope,
+              path: saved.path,
+              content: saved.content,
+            },
+          })
         }
 
         if (req.method === 'POST' && pathname === '/api/remove') {

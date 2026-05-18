@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { getDefaultConfig, saveConfig } from '~/core/config'
+import { findProjectConfigPath, getDefaultConfig, getEffectiveConfigPath, saveConfig } from '~/core/config'
 
 const TEST_DIR = join(import.meta.dirname, '..', '..', '.test-tmp-config')
 
@@ -48,6 +48,19 @@ describe('config', () => {
       const configPath = join(TEST_DIR, 'deep', 'nested', '.rulesrc')
       saveConfig(getDefaultConfig(), configPath)
       expect(existsSync(configPath)).toBe(true)
+    })
+  })
+
+  describe('project config lookup', () => {
+    it('项目配置优先作为生效配置', () => {
+      const configPath = join(TEST_DIR, '.rulesrc')
+      saveConfig({
+        defaultAgents: ['antigravity'],
+        scope: 'project',
+      }, configPath)
+
+      expect(findProjectConfigPath(join(TEST_DIR, 'src'))).toBe(configPath)
+      expect(getEffectiveConfigPath(join(TEST_DIR, 'src'))).toBe(configPath)
     })
   })
 })

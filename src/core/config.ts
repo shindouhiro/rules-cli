@@ -41,6 +41,19 @@ export function getGlobalConfigPath(): string {
   return join(homedir(), '.config', 'rules-cli', CONFIG_FILENAME)
 }
 
+export function getProjectConfigPath(cwd?: string): string {
+  return findProjectConfigPath(cwd) || join(resolve(cwd || process.cwd()), CONFIG_FILENAME)
+}
+
+export function getEffectiveConfigPath(cwd?: string): string | undefined {
+  const projectPath = findProjectConfigPath(cwd)
+  if (projectPath)
+    return projectPath
+
+  const globalPath = getGlobalConfigPath()
+  return existsSync(globalPath) ? globalPath : undefined
+}
+
 /**
  * 加载配置（项目级 > 全局 > 默认）
  */
@@ -71,6 +84,10 @@ function readConfigFile(path: string): Partial<RulesConfig> {
   catch {
     return {}
   }
+}
+
+export function loadConfigFile(path: string): RulesConfig {
+  return mergeConfig(getDefaultConfig(), existsSync(path) ? readConfigFile(path) : {})
 }
 
 /**

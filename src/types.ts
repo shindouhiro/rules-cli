@@ -103,6 +103,8 @@ export interface RuleSource {
   repo?: string
   /** 通用 Git 仓库 URL，type 为 git 时使用 */
   url?: string
+  /** 默认读取或发布分支 */
+  branch?: string
   /** 仓库内规则所在子目录 */
   subPath?: string
 }

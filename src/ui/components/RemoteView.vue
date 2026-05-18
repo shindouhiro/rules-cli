@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { computed, onMounted, ref, watch } from 'vue'
+import CustomSelect from './CustomSelect.vue'
 
 interface RemoteRuleResult {
   name: string
@@ -51,6 +52,30 @@ const canSearchSources = computed(() => searchForm.value.target === 'all' || sea
 const publishableRules = computed(() => props.rules.filter(rule => rule.path))
 const canPublish = computed(() => !!publishForm.value.rulePath && !!publishForm.value.repo.trim())
 const hasManagedRepos = computed(() => managedRepos.value.length > 0)
+const publishRuleOptions = computed(() => [
+  { label: '选择要上传的本地规则', value: '', disabled: true },
+  ...publishableRules.value.map(rule => ({
+    label: `${rule.name} · ${rule.isGlobal ? '全局' : '项目'}`,
+    value: rule.path,
+  })),
+])
+const managedRepoOptions = computed(() => [
+  { label: hasManagedRepos.value ? '选择已保存仓库' : '暂无已保存仓库', value: '', disabled: !hasManagedRepos.value },
+  ...managedRepos.value.map(repo => ({
+    label: repo.url,
+    value: repo.url,
+    description: `${repo.branch} · ${repo.path || '.'}`,
+  })),
+])
+const remoteTargetOptions = [
+  { label: '全部来源', value: 'all' },
+  { label: 'cursor.directory', value: 'cursor' },
+  { label: '.rulesrc 远程源', value: 'sources' },
+]
+const installSourceOptions = [
+  { label: '官方 cursor.directory 生态', value: 'cursor.directory' },
+  { label: '指定远程 Git 规则源', value: 'custom' },
+]
 
 function normalizeManagedRepo(repo: ManagedRepo): ManagedRepo {
   return {
@@ -206,22 +231,8 @@ watch(managedRepos, () => {
       </div>
 
       <div class="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(180px,0.9fr)_minmax(220px,1fr)_minmax(260px,1.4fr)_100px_100px]">
-        <select v-model="publishForm.rulePath" name="publish-rule" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 focus-visible:border-emerald-500">
-          <option value="">
-            选择要上传的本地规则
-          </option>
-          <option v-for="rule in publishableRules" :key="rule.path" :value="rule.path">
-            {{ rule.name }} · {{ rule.isGlobal ? '全局' : '项目' }}
-          </option>
-        </select>
-        <select name="managed-publish-repo" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 focus-visible:border-emerald-500" @change="handleSelectManagedRepo(($event.target as HTMLSelectElement).value)">
-          <option value="">
-            {{ hasManagedRepos ? '选择已保存仓库' : '暂无已保存仓库' }}
-          </option>
-          <option v-for="repo in managedRepos" :key="repo.url" :value="repo.url">
-            {{ repo.url }}
-          </option>
-        </select>
+        <CustomSelect id="publish-rule-select" v-model="publishForm.rulePath" :options="publishRuleOptions" placeholder="选择要上传的本地规则" aria-label="选择要上传的本地规则" />
+        <CustomSelect id="managed-publish-repo-select" :model-value="publishForm.repo" :options="managedRepoOptions" placeholder="选择已保存仓库" aria-label="选择已保存仓库" @update:model-value="handleSelectManagedRepo" />
         <input v-model="publishForm.repo" type="text" name="publish-repo" autocomplete="off" spellcheck="false" placeholder="git@gitlab.com:user/rules.git 或 https://gitee.com/user/rules.git" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 font-mono">
         <input v-model="publishForm.branch" type="text" name="publish-branch" autocomplete="off" spellcheck="false" placeholder="main" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 font-mono">
         <input v-model="publishForm.path" type="text" name="publish-path" autocomplete="off" spellcheck="false" placeholder="rules" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 font-mono">
@@ -294,17 +305,7 @@ watch(managedRepos, () => {
 
       <div class="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_180px_auto]">
         <input v-model="searchForm.keyword" type="search" name="remote-keyword" autocomplete="off" spellcheck="false" placeholder="输入关键词，如 vue / react / django" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-500 focus-visible:border-brand-500 font-mono" @keydown.enter="handleSearch">
-        <select v-model="searchForm.target" name="remote-target" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-500 focus-visible:border-brand-500">
-          <option value="all">
-            全部来源
-          </option>
-          <option value="cursor">
-            cursor.directory
-          </option>
-          <option value="sources">
-            .rulesrc 远程源
-          </option>
-        </select>
+        <CustomSelect id="remote-target-select" v-model="searchForm.target" :options="remoteTargetOptions" placeholder="搜索来源" aria-label="搜索来源" />
         <button
           :disabled="searchState.loading"
           class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white transition hover:bg-emerald-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
@@ -373,14 +374,7 @@ watch(managedRepos, () => {
           </div>
           <div>
             <label class="block text-xs text-slate-400 mb-1">规则来源通道</label>
-            <select v-model="installForm.source" name="source" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-500 focus-visible:border-brand-500">
-              <option value="cursor.directory">
-                官方 cursor.directory 生态
-              </option>
-              <option value="custom">
-                指定远程 Git 规则源
-              </option>
-            </select>
+            <CustomSelect id="install-source-select" v-model="installForm.source" :options="installSourceOptions" placeholder="规则来源通道" aria-label="规则来源通道" />
           </div>
           <div v-if="installForm.source === 'custom'">
             <label class="block text-xs text-slate-400 mb-1">远程规则源</label>

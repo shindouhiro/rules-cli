@@ -6,6 +6,15 @@
   "description": "Manage and sync AI Agent rules across 30+ coding assistants via symlink",
   "author": "hikaru",
   "license": "MIT",
+  "homepage": "https://github.com/shindouhiro/rules-cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shindouhiro/rules-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shindouhiro/rules-cli/issues"
+  },
+  "readmeFilename": "README.md",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",

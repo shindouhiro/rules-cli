@@ -12,6 +12,8 @@ const loading = ref(true)
 const rules = ref<any[]>([])
 const agents = ref<any[]>([])
 const applied = ref<any[]>([])
+const config = ref<any>({ defaultAgents: [], scope: 'project' })
+const configMeta = ref<any>({})
 const currentTab = ref('store')
 
 const toast = ref({ show: false, message: '', type: 'success' })
@@ -43,6 +45,8 @@ async function fetchData() {
       rules.value = json.data.rules || []
       agents.value = json.data.agents || []
       applied.value = json.data.applied || []
+      config.value = json.data.config || { defaultAgents: [], scope: 'project' }
+      configMeta.value = json.data.configMeta || {}
     }
   }
   catch (err: any) {
@@ -433,19 +437,24 @@ function closeConfirmDialog(confirmed: boolean) {
         </header>
 
         <section class="p-5 sm:p-8">
-          <StoreView v-if="currentTab === 'store'" :rules="rules" :agents="agents" :loading="loading" @apply="handleApply" @publish="handlePublishRules" @edit="handleOpenEdit" @delete="handleDeleteStoreRule" />
+          <StoreView v-if="currentTab === 'store'" :rules="rules" :agents="agents" :loading="loading" :default-agent-ids="config.defaultAgents || []" @apply="handleApply" @publish="handlePublishRules" @edit="handleOpenEdit" @delete="handleDeleteStoreRule" />
 
           <AppliedView v-if="currentTab === 'applied'" :applied="applied" :loading="loading" @remove="handleRemoveApplied" @remove-many="handleRemoveManyApplied" />
 
           <RemoteView v-if="currentTab === 'remote'" :rules="rules" @install="handleInstallRemote" @publish="handlePublishRules" @create="handleCreateRule" />
 
-          <RemoteRepoView v-if="currentTab === 'remote-repos'" @install="handleInstallRemote" />
+          <RemoteRepoView
+            v-if="currentTab === 'remote-repos'"
+            :config-meta="configMeta"
+            @install="handleInstallRemote"
+            @config-updated="fetchData"
+          />
         </section>
       </main>
     </div>
 
     <!-- 源码编辑器抽屉 Modal -->
-    <EditModal :show="editModal.show" :rule="editModal.rule" :agents="agents" @close="editModal.show = false" @save="handleSaveEdit" @apply="handleApplyRuleFromModal" />
+    <EditModal :show="editModal.show" :rule="editModal.rule" :agents="agents" :default-agent-ids="config.defaultAgents || []" @close="editModal.show = false" @save="handleSaveEdit" @apply="handleApplyRuleFromModal" />
     <ConfirmDialog
       :show="confirmDialog.show"
       :title="confirmDialog.title"

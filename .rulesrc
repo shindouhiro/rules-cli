@@ -1,6 +1,7 @@
 {
   "defaultAgents": [
-    "claude-code"
+    "antigravity",
+    "claude code"
   ],
   "scope": "project",
   "sources": [
