@@ -31,7 +31,8 @@
 - 📦 **多助手适配**：支持目录型规则和单文件注入型规则两种模式。
 - 🗺️ **地图式规则入口**：单文件型助手只写入精简入口地图，详细内容同步到 `docs/` 等引用目录。
 - 🔗 **智能共享**：目录型助手默认使用符号链接（Symlink），一份规则多处共享。
-- 🔍 **远程搜索与下载**：支持 GitHub 规则源，也支持从 [cursor.directory](https://cursor.directory/) 搜索和下载规则。
+- 🔍 **远程搜索与下载**：支持 GitHub `owner/repo`、任意 Git URL 规则源，也支持从 [cursor.directory](https://cursor.directory/) 搜索和下载规则。
+- ☁️ **远程仓库发布**：支持将本地 store 中的规则发布到 GitHub、GitLab、Gitee 或自建 Git 仓库，并保留远程仓库内其他文件。
 - 🧭 **作用域清晰**：支持项目级和全局级 store / applied rules。
 - 🧾 **手写规则可见**：`rules list` 会显示已有的手写单文件规则，并标记为 manual。
 - 🗑️ **交互式移除**：支持从已应用规则或 store 中交互式选择并删除；引用文件删除后会自动清理空目录。
@@ -86,7 +87,7 @@ rules a use-chinese --project
 rules search vue
 ```
 
-同时搜索 GitHub 远程源：
+同时搜索远程源：
 
 ```bash
 rules search react --remote
@@ -100,7 +101,7 @@ rules search angular --cursor
 
 ### 5. 下载远程规则
 
-从 `.rulesrc` 配置的 GitHub sources 下载：
+从 `.rulesrc` 配置的 sources 下载：
 
 ```bash
 rules install react
@@ -114,9 +115,31 @@ rules install angular-cursor-rules --cursor
 rules i nextjs-react-typescript-cursor-rules --source cursor.directory
 ```
 
-也可以不带 `--cursor`。当配置的 GitHub sources 找不到规则时，CLI 会自动尝试从 `cursor.directory` 下载同名规则。
+也可以不带 `--cursor`。当配置的 sources 找不到规则时，CLI 会自动尝试从 `cursor.directory` 下载同名规则。
 
-### 6. 查看规则
+从任意 Git 仓库下载：
+
+```bash
+rules install vue --source git@github.com:owner/rules.git
+rules install react --source https://gitlab.com/owner/rules.git --project
+```
+
+### 6. 发布本地规则到远程仓库
+
+发布当前作用域 store 中的全部规则：
+
+```bash
+rules publish --repo git@github.com:owner/rules.git --branch main --path rules
+rules publish --source team-rules --message "chore: sync rules"
+```
+
+仅预检发布计划，不提交、不推送：
+
+```bash
+rules publish --repo git@github.com:owner/rules.git --dry-run
+```
+
+### 7. 查看规则
 
 ```bash
 rules list
@@ -130,7 +153,7 @@ rules ls --store
 📄 GEMINI.md — 语言要求 所有回复、思考过程及任务清单，均须使用中文 (manual, not managed by rules-cli)
 ```
 
-### 7. 移除规则
+### 8. 移除规则
 
 ```bash
 rules remove use-chinese
@@ -139,7 +162,7 @@ rules rm -i
 rules rm -i --store --global
 ```
 
-### 8. 图形化 Web UI 沉浸式管理控制台
+### 9. 图形化 Web UI 沉浸式管理控制台
 
 通过单条终端指令即可拉起全链条组件化架构的现代化控制台，并在默认浏览器中实现自启：
 
@@ -152,6 +175,9 @@ rules ui --port 8080
 - **作用域双向链路同步下发**：支持将跨域单据一键绑定挂载至指定助手通道的项目或全局环境。
 - **高保真即时落盘源码编辑器**：支持在线实时修改 `rule.md` 主体结构及 Frontmatter 并自动回写磁盘。
 - **规则库批量选择**：本地规则库支持筛选后全选、清空选择、多助手批量下发，并使用项目/全局规则路径精确匹配。
+- **远程仓库管理**：支持保存 Git 仓库地址、分支和目录；进入页面或切换仓库时自动读取远程 rules，并使用 24 小时本地缓存加速重复加载。
+- **远程发布与删除**：支持从 UI 上传本地规则到远程 Git 仓库、读取远程 rules、下载到本地和删除远程规则；删除类操作均需要二次确认。
+- **Icon 化操作控件**：关键操作统一使用图标按钮，并提供悬停提示与 `aria-label`。
 - **映射嗅探与批量解绑**：直观展示已生效的软链接与注入配置，支持多选解绑，解绑时同步清理 agent 入口和引用文件。
 - **组件化二次确认**：删除 store 规则、单条解绑、批量解绑均使用内置确认弹窗，不依赖浏览器原生确认框。
 
@@ -160,8 +186,9 @@ rules ui --port 8080
 | 指令 | 别名 | 描述 | 常用选项 |
 | :--- | :--- | :--- | :--- |
 | `ui` | - | 启动沉浸式 Web 图形化管理控制台服务 | `--port <number>`: 指定本地服务监听端口 |
-| `search [keyword]` | `s` | 搜索本地、GitHub 远程源或 cursor.directory 规则 | `-r, --remote`: 搜索远程源<br>`-c, --cursor`: 搜索 cursor.directory |
-| `install [name]` | `i` | 从远程源下载规则到本地 store，并进入应用流程 | `-s, --source <repo>`: 指定 GitHub 仓库或 cursor.directory<br>`-c, --cursor`: 从 cursor.directory 下载<br>`-g, --global`: 下载到全局 store<br>`-p, --project`: 下载到项目 store<br>`-f, --force`: 覆盖已存在规则 |
+| `search [keyword]` | `s` | 搜索本地、Git 远程源或 cursor.directory 规则 | `-r, --remote`: 搜索远程源<br>`-c, --cursor`: 搜索 cursor.directory |
+| `install [name]` | `i` | 从远程源下载规则到本地 store，并进入应用流程 | `-s, --source <repo-or-url>`: 指定 GitHub `owner/repo`、Git URL 或 cursor.directory<br>`-c, --cursor`: 从 cursor.directory 下载<br>`-g, --global`: 下载到全局 store<br>`-p, --project`: 下载到项目 store<br>`-f, --force`: 覆盖已存在规则 |
+| `publish` | - | 发布本地 store 规则到远程 Git 仓库 | `--repo <git-url>`: 指定远程仓库<br>`-s, --source <source>`: 使用 `.rulesrc` source 名称、key 或 URL<br>`-b, --branch <branch>`: 目标分支<br>`--path <dir>`: 仓库内目标目录<br>`-m, --message <message>`: 提交信息<br>`--dry-run`: 只预检 |
 | `apply [name]` | `a` | 将 store 中的规则应用到 AI 助手 | `-a, --agent <agents>`: 指定目标助手<br>`-g, --global`: 应用到全局目录<br>`-p, --project`: 应用到项目目录<br>`-f, --force`: 强制覆盖 |
 | `list` | `ls` | 列出已应用规则或 store 规则 | `-s, --store`: 查看 store<br>`-g, --global`: 只看全局<br>`-p, --project`: 只看项目 |
 | `remove [name]` | `rm`, `delete` | 移除已应用规则或删除 store 规则 | `-a, --agent <agents>`: 指定助手<br>`-s, --store`: 从 store 删除<br>`-i, --interactive`: 交互式选择<br>`-g, --global`: 全局作用域<br>`-p, --project`: 项目作用域 |
@@ -193,7 +220,14 @@ rules ui --port 8080
   "scope": "global",
   "sources": [
     {
+      "name": "github-rules",
       "repo": "owner/rules-repo",
+      "subPath": "rules"
+    },
+    {
+      "type": "git",
+      "name": "team-rules",
+      "url": "git@github.com:owner/rules.git",
       "subPath": "rules"
     }
   ]
@@ -207,7 +241,7 @@ rules ui --port 8080
 | `defaultAgents` | 默认应用到哪些 AI 助手 |
 | `scope` | 默认作用域，支持 `project` 或 `global` |
 | `storePath` | 自定义 store 路径，可选 |
-| `sources` | GitHub 远程规则源列表 |
+| `sources` | 远程规则源列表；兼容 GitHub `repo` 配置，也支持 `type: "git"` + `url` |
 
 ## 📌 作用域规则
 

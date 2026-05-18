@@ -9,6 +9,7 @@ import { loadConfig } from '~/core/config'
 import { downloadCursorDirectoryRule, isCursorDirectorySource, searchCursorDirectoryRules } from '~/core/cursor-directory'
 import { downloadRule, getSourceKey, searchAllRemoteSources } from '~/core/remote'
 import { resolveIsGlobal } from '~/core/scope'
+import { sourceFromInput } from '~/core/source'
 import { getStoreRuleDir } from '~/core/store'
 import { printScope, printSection } from '~/core/ui'
 
@@ -44,7 +45,7 @@ export async function installCommand(name: string | undefined, options: InstallO
   let sources: RuleSource[]
 
   if (options.source) {
-    sources = [{ repo: options.source }]
+    sources = [sourceFromInput(options.source)]
   }
   else if (config.sources && config.sources.length > 0) {
     sources = config.sources
@@ -52,8 +53,8 @@ export async function installCommand(name: string | undefined, options: InstallO
   else {
     consola.error('没有配置远程规则源')
     consola.info(`在 ${pc.cyan('.rulesrc')} 中添加 sources 配置：`)
-    consola.info(pc.dim('  { "sources": [{ "repo": "owner/rules-repo" }] }'))
-    consola.info(`或使用 ${pc.cyan('--source owner/repo')} 指定`)
+    consola.info(pc.dim('  { "sources": [{ "repo": "owner/rules-repo" }, { "type": "git", "url": "git@gitlab.com:user/rules.git" }] }'))
+    consola.info(`或使用 ${pc.cyan('--source owner/repo')} / ${pc.cyan('--source <git-url>')} 指定`)
     return
   }
 

@@ -4,6 +4,7 @@ import { onMounted, ref } from 'vue'
 import AppliedView from './components/AppliedView.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import EditModal from './components/EditModal.vue'
+import RemoteRepoView from './components/RemoteRepoView.vue'
 import RemoteView from './components/RemoteView.vue'
 import StoreView from './components/StoreView.vue'
 
@@ -298,6 +299,40 @@ async function handleCreateRule(name: string, isGlobal: boolean, referencesDir: 
   }
 }
 
+async function handlePublishRules(payload: {
+  rulePaths: string[]
+  repo: string
+  branch?: string
+  path?: string
+  message?: string
+  dryRun?: boolean
+  isGlobal: boolean
+}) {
+  try {
+    const res = await fetch('/api/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rulePaths: payload.rulePaths,
+        repo: payload.repo,
+        branch: payload.branch,
+        path: payload.path,
+        message: payload.message,
+        dryRun: payload.dryRun,
+        global: payload.isGlobal,
+      }),
+    })
+    const json = await res.json()
+    if (json.success)
+      showToast(json.message || '规则上传发布完成')
+    else
+      showToast(json.message || '上传发布失败', 'error')
+  }
+  catch (err: any) {
+    showToast(`上传通信错误: ${err.message}`, 'error')
+  }
+}
+
 onMounted(() => {
   fetchData()
 })
@@ -371,6 +406,10 @@ function closeConfirmDialog(confirmed: boolean) {
               <Icon icon="ph:plus-circle-duotone" class="text-lg" />
               <span>远程与新建</span>
             </button>
+            <button class="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors" :class="currentTab === 'remote-repos' ? 'bg-slate-800 text-white shadow-lg shadow-slate-950/20' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'" @click="currentTab = 'remote-repos'">
+              <Icon icon="ph:git-branch-duotone" class="text-lg" />
+              <span>远程仓库</span>
+            </button>
           </nav>
 
           <div class="mt-auto border-t border-slate-800/80 p-4">
@@ -385,7 +424,7 @@ function closeConfirmDialog(confirmed: boolean) {
         <header class="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/75 px-6 py-5 backdrop-blur-xl sm:px-8">
           <div class="flex flex-col gap-1.5">
             <h2 class="text-2xl font-semibold tracking-tight text-white">
-              {{ currentTab === 'store' ? '本地规则库' : currentTab === 'applied' ? '生效映射' : '远程与新建' }}
+              {{ currentTab === 'store' ? '本地规则库' : currentTab === 'applied' ? '生效映射' : currentTab === 'remote-repos' ? '远程仓库' : '远程与新建' }}
             </h2>
             <p class="text-sm text-slate-400">
               默认以引用文件树同步规则，可在编辑面板调整 referencesDir。
@@ -394,11 +433,13 @@ function closeConfirmDialog(confirmed: boolean) {
         </header>
 
         <section class="p-5 sm:p-8">
-          <StoreView v-if="currentTab === 'store'" :rules="rules" :agents="agents" :loading="loading" @apply="handleApply" @edit="handleOpenEdit" @delete="handleDeleteStoreRule" />
+          <StoreView v-if="currentTab === 'store'" :rules="rules" :agents="agents" :loading="loading" @apply="handleApply" @publish="handlePublishRules" @edit="handleOpenEdit" @delete="handleDeleteStoreRule" />
 
           <AppliedView v-if="currentTab === 'applied'" :applied="applied" :loading="loading" @remove="handleRemoveApplied" @remove-many="handleRemoveManyApplied" />
 
-          <RemoteView v-if="currentTab === 'remote'" @install="handleInstallRemote" @create="handleCreateRule" />
+          <RemoteView v-if="currentTab === 'remote'" :rules="rules" @install="handleInstallRemote" @publish="handlePublishRules" @create="handleCreateRule" />
+
+          <RemoteRepoView v-if="currentTab === 'remote-repos'" @install="handleInstallRemote" />
         </section>
       </main>
     </div>

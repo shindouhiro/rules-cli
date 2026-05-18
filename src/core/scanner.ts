@@ -35,6 +35,7 @@ export function parseRuleMeta(content: string): { meta?: RuleMeta, body: string 
     meta: {
       name: (meta.name as string) || '',
       description: (meta.description as string) || '',
+      icon: meta.icon as string | undefined,
       tags,
       referencesDir: meta.referencesDir as string | undefined,
       references,

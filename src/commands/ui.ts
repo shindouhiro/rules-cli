@@ -2,7 +2,7 @@ import type { ServerResponse } from 'node:http'
 import type { RuleInfo } from '~/types'
 import { Buffer } from 'node:buffer'
 import { exec } from 'node:child_process'
-import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { dirname, extname, join, normalize, relative, sep } from 'node:path'
 import process from 'node:process'
@@ -11,12 +11,15 @@ import consola from 'consola'
 import pc from 'picocolors'
 import { applyRulesByNames } from '~/commands/apply'
 import { createCommand } from '~/commands/create'
+import { deleteRemoteRuleCommand, publishCommand } from '~/commands/publish'
 import { AGENTS, resolveAgentPath } from '~/core/agents'
 import { loadConfig } from '~/core/config'
 import { downloadCursorDirectoryRule, searchCursorDirectoryRules } from '~/core/cursor-directory'
 import { extractManagedRuleNames, removeRuleFromSingleFileAgent, removeRuleReferencesFromDirectoryAgent } from '~/core/linker'
-import { downloadRule, getSourceKey, searchAllRemoteSources } from '~/core/remote'
+import { isUnsafeReferencePath } from '~/core/references'
+import { downloadRule, searchAllRemoteSources, searchRemoteRules } from '~/core/remote'
 import { getRuleByName, scanStoreRuleEntries } from '~/core/scanner'
+import { findConfiguredSource, sourceFromInput } from '~/core/source'
 import { printSection } from '~/core/ui'
 
 export interface UiOptions {
@@ -250,6 +253,17 @@ export async function uiCommand(options: UiOptions): Promise<void> {
           return jsonResponse({ success: true, data: { results, hasConfiguredSources: !!config.sources?.length } })
         }
 
+        if (req.method === 'GET' && pathname === '/api/remote-repo-rules') {
+          const repo = url.searchParams.get('repo')?.trim()
+          const subPath = url.searchParams.get('path')?.trim() || undefined
+          const keyword = url.searchParams.get('keyword')?.trim() || undefined
+          if (!repo)
+            return jsonResponse({ success: false, message: '缺少远程仓库地址' }, 400)
+
+          const results = await searchRemoteRules({ ...sourceFromInput(repo), subPath }, keyword)
+          return jsonResponse({ success: true, data: { results } })
+        }
+
         const getBody = async () => {
           const buffers = []
           for await (const chunk of req) {
@@ -308,9 +322,17 @@ export async function uiCommand(options: UiOptions): Promise<void> {
           writeFileSync(path, content || '', 'utf-8')
           if (Array.isArray(references)) {
             for (const reference of references) {
-              if (!reference?.sourcePath || !existsSync(reference.sourcePath))
+              if (reference?.sourcePath && existsSync(reference.sourcePath)) {
+                writeFileSync(reference.sourcePath, reference.content || '', 'utf-8')
                 continue
-              writeFileSync(reference.sourcePath, reference.content || '', 'utf-8')
+              }
+
+              if (!reference?.targetPath || isUnsafeReferencePath(reference.targetPath))
+                continue
+
+              const referencePath = join(dirname(path), reference.targetPath)
+              mkdirSync(dirname(referencePath), { recursive: true })
+              writeFileSync(referencePath, reference.content || '', 'utf-8')
             }
           }
           return jsonResponse({ success: true, message: '源码更新回写磁盘完毕' })
@@ -348,11 +370,42 @@ export async function uiCommand(options: UiOptions): Promise<void> {
           }
           else {
             const config = loadConfig(cwd)
-            const matchedSource = config.sources?.find(item => getSourceKey(item) === source)
-            const sourceConfig = matchedSource || { repo: String(source).replace(/^github:/u, '') }
+            const rawSource = String(source)
+            const matchedSource = findConfiguredSource(config.sources, rawSource)
+            const sourceConfig = matchedSource || sourceFromInput(rawSource.replace(/^github:/u, ''))
             await downloadRule(sourceConfig, name, storeOptions)
           }
           return jsonResponse({ success: true, message: `已成功同步下发至库` })
+        }
+
+        if (req.method === 'POST' && pathname === '/api/publish') {
+          const body = await getBody()
+          const { repo, source, branch, path, message, dryRun, global, rulePaths } = body
+          await publishCommand({
+            repo,
+            source,
+            branch,
+            path,
+            message,
+            dryRun: !!dryRun,
+            global: !!global,
+            project: !global,
+            rulePaths: Array.isArray(rulePaths) ? rulePaths : undefined,
+          })
+          return jsonResponse({ success: true, message: dryRun ? '上传预检完成' : '规则上传发布完成' })
+        }
+
+        if (req.method === 'POST' && pathname === '/api/delete-remote-rule') {
+          const body = await getBody()
+          const { repo, ruleName, branch, path, message } = body
+          await deleteRemoteRuleCommand({
+            repo,
+            ruleName,
+            branch,
+            path,
+            message,
+          })
+          return jsonResponse({ success: true, message: `远程规则 ${ruleName} 已删除` })
         }
 
         return jsonResponse({ success: false, message: '请求接口不存在' }, 404)

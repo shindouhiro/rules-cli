@@ -80,6 +80,19 @@ body
     expect(meta!.tags).toEqual(['vue', 'typescript', 'best-practice'])
   })
 
+  it('解析规则图标字段用于本地规则库预览', () => {
+    const content = `---
+name: test
+description: test
+icon: ph:code-duotone
+---
+
+body
+`
+    const { meta } = parseRuleMeta(content)
+    expect(meta!.icon).toBe('ph:code-duotone')
+  })
+
   it('解析 references 引用清单', () => {
     const content = `---
 name: agent-map

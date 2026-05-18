@@ -31,6 +31,7 @@ export interface AgentRulesDef {
 export interface RuleMeta {
   name: string
   description: string
+  icon?: string
   tags?: string[]
   referencesDir?: string
   references?: RuleReference[]
@@ -91,9 +92,17 @@ export interface ScopedRuleInfo extends RuleInfo {
 /**
  * 远程规则源定义
  */
+export type RemoteSourceType = 'github' | 'git'
+
 export interface RuleSource {
-  /** GitHub 仓库 (owner/repo) */
-  repo: string
+  /** 远程源类型；省略时兼容旧版 GitHub owner/repo 配置 */
+  type?: RemoteSourceType
+  /** 远程源展示名，可用于 --source 复用配置 */
+  name?: string
+  /** GitHub 仓库 (owner/repo)，旧版配置继续使用该字段 */
+  repo?: string
+  /** 通用 Git 仓库 URL，type 为 git 时使用 */
+  url?: string
   /** 仓库内规则所在子目录 */
   subPath?: string
 }

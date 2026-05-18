@@ -48,7 +48,7 @@ export async function searchCommand(keyword: string | undefined, options: Search
     if (!sources || sources.length === 0) {
       consola.warn('没有配置远程规则源')
       consola.info(`在 ${pc.cyan('.rulesrc')} 中添加 sources 配置，例如：`)
-      consola.info(pc.dim('  { "sources": [{ "repo": "owner/rules-repo" }] }'))
+      consola.info(pc.dim('  { "sources": [{ "repo": "owner/rules-repo" }, { "type": "git", "url": "git@gitlab.com:user/rules.git" }] }'))
       return
     }
 

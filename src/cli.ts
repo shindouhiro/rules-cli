@@ -8,6 +8,7 @@ import { createCommand } from '~/commands/create'
 import { initCommand } from '~/commands/init'
 import { installCommand } from '~/commands/install'
 import { listCommand } from '~/commands/list'
+import { publishCommand } from '~/commands/publish'
 import { removeCommand } from '~/commands/remove'
 import { searchCommand } from '~/commands/search'
 import { uiCommand } from '~/commands/ui'
@@ -23,6 +24,7 @@ const COMMAND_HELP = [
   ['remove [name]', '移除已应用的规则', '-a, --agent  -s, --store  -i, --interactive  -g, --global  -p, --project'],
   ['create <name>', '创建新规则模板', '-g, --global  -p, --project'],
   ['install [name]', '从远程源下载规则', '-s, --source  -c, --cursor  -g, --global  -p, --project  -f, --force'],
+  ['publish', '发布规则到远程 Git 仓库', '--repo  --source  --branch  --path  --dry-run'],
   ['init', '初始化配置和存储目录', '-g, --global  -p, --project'],
   ['ui', '启动 Web 图形化操作控制台', '-p, --port'],
 ] as const
@@ -128,7 +130,7 @@ cli
 cli
   .command('install [name]', '从远程源下载规则 (alias: i)')
   .alias('i')
-  .option('-s, --source <repo>', '指定 GitHub 仓库 (owner/repo) 或 cursor.directory')
+  .option('-s, --source <repo>', '指定 GitHub 仓库、Git URL 或 cursor.directory')
   .option('-c, --cursor', '从 cursor.directory 下载规则')
   .option('-g, --global', '下载到全局 store')
   .option('-p, --project', '下载到当前项目 store')
@@ -138,6 +140,24 @@ cli
       return
     showBanner()
     await installCommand(name, options)
+  })
+
+// === publish ===
+cli
+  .command('publish', '发布规则到远程 Git 仓库')
+  .option('--repo <git-url>', '任意 Git 远程仓库 URL')
+  .option('-s, --source <source>', '使用 .rulesrc source 名称、source key 或远程 URL')
+  .option('-b, --branch <branch>', '目标分支（默认使用远程默认分支，无法识别时为 main）')
+  .option('--path <dir>', '写入仓库内的目标目录')
+  .option('-m, --message <message>', '提交信息（默认: chore: sync rules）')
+  .option('--dry-run', '仅展示发布计划，不提交不推送')
+  .option('-g, --global', '发布全局 store')
+  .option('-p, --project', '发布当前项目 store')
+  .action(async (options: { repo?: string, source?: string, branch?: string, path?: string, message?: string, dryRun?: boolean, global?: boolean, project?: boolean, help?: boolean }) => {
+    if (isHelpOption(options))
+      return
+    showBanner()
+    await publishCommand(options)
   })
 
 // === init ===

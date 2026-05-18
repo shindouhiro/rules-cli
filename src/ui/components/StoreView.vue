@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'apply', ruleNames: string[], agentIds: string[], isGlobal: boolean, rulePaths?: string[]): void
+  (e: 'publish', payload: { rulePaths: string[], repo: string, branch?: string, path?: string, message?: string, dryRun?: boolean, isGlobal: boolean }): void
   (e: 'edit', rule: any): void
   (e: 'delete', rule: any): void
 }>()
@@ -18,6 +19,13 @@ const searchQuery = ref('')
 const selectedRulePaths = ref<string[]>([])
 const selectedAgents = ref<string[]>([])
 const applyScopeGlobal = ref(false)
+const publishForm = ref({
+  repo: '',
+  branch: 'main',
+  path: 'rules',
+  message: 'chore: sync rules',
+  dryRun: false,
+})
 
 const filteredRules = computed(() => {
   if (!searchQuery.value)
@@ -69,6 +77,21 @@ function executeApply() {
   const selectedNames = selectedRules.value.map(rule => rule.name)
   emit('apply', selectedNames, selectedAgents.value, applyScopeGlobal.value, selectedRulePaths.value)
   selectedRulePaths.value = []
+}
+
+function executePublish() {
+  if (selectedRulePaths.value.length === 0 || !publishForm.value.repo.trim())
+    return
+
+  emit('publish', {
+    rulePaths: [...selectedRulePaths.value],
+    repo: publishForm.value.repo.trim(),
+    branch: publishForm.value.branch.trim() || undefined,
+    path: publishForm.value.path.trim() || undefined,
+    message: publishForm.value.message.trim() || undefined,
+    dryRun: publishForm.value.dryRun,
+    isGlobal: applyScopeGlobal.value,
+  })
 }
 
 watch(() => props.rules, () => {
@@ -130,6 +153,12 @@ watch(() => props.agents, (newAgents) => {
               <button class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500" :class="selectedRulePaths.includes(rule.path) ? 'border-cyan-400 bg-cyan-400 text-slate-950' : 'border-slate-700 bg-slate-950 text-transparent group-hover:border-slate-500'" :aria-pressed="selectedRulePaths.includes(rule.path)" :aria-label="`选择 ${rule.name}`" @click.stop="toggleSelectRule(rule.path)">
                 <Icon icon="ph:check-bold" class="text-xs" aria-hidden="true" />
               </button>
+              <span v-if="rule.meta?.icon" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-brand-500/20 bg-brand-500/10 text-brand-300" :title="rule.meta.icon">
+                <Icon :icon="rule.meta.icon" class="text-lg" aria-hidden="true" />
+              </span>
+              <span v-else class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-500" title="未配置 icon">
+                <Icon icon="ph:file-text-duotone" class="text-lg" aria-hidden="true" />
+              </span>
               <h3 class="text-lg font-semibold tracking-tight text-slate-100 transition-colors group-hover:text-brand-300">
                 {{ rule.name }}
               </h3>
@@ -203,6 +232,12 @@ watch(() => props.agents, (newAgents) => {
             {{ agent.name }}
           </button>
         </div>
+        <div class="grid max-w-4xl grid-cols-1 gap-2 pt-3 md:grid-cols-[minmax(220px,1.4fr)_100px_100px_minmax(160px,1fr)]">
+          <input v-model="publishForm.repo" name="publish-repo" autocomplete="off" spellcheck="false" aria-label="上传仓库地址" type="text" placeholder="上传仓库: git@gitlab.com:user/rules.git" class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2 font-mono text-xs text-slate-200 placeholder:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+          <input v-model="publishForm.branch" name="publish-branch" autocomplete="off" spellcheck="false" aria-label="上传分支" type="text" placeholder="main" class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2 font-mono text-xs text-slate-200 placeholder:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+          <input v-model="publishForm.path" name="publish-path" autocomplete="off" spellcheck="false" aria-label="上传目录" type="text" placeholder="rules" class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2 font-mono text-xs text-slate-200 placeholder:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+          <input v-model="publishForm.message" name="publish-message" autocomplete="off" spellcheck="false" aria-label="提交信息" type="text" placeholder="chore: sync rules" class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+        </div>
       </div>
 
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
@@ -216,9 +251,18 @@ watch(() => props.agents, (newAgents) => {
           </button>
         </div>
 
-        <button :disabled="selectedAgents.length === 0" class="rounded-xl bg-gradient-to-r from-brand-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/20 transition-colors hover:from-brand-500 hover:to-cyan-400 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900" @click="executeApply">
-          分发绑定下发
-        </button>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <label class="flex items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-400">
+            <input v-model="publishForm.dryRun" type="checkbox" name="publish-dry-run" class="rounded border-slate-700 bg-slate-950 text-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+            预检
+          </label>
+          <button :disabled="!publishForm.repo.trim()" class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition-colors hover:bg-emerald-500/20 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900" @click="executePublish">
+            上传仓库
+          </button>
+          <button :disabled="selectedAgents.length === 0" class="rounded-xl bg-gradient-to-r from-brand-600 to-cyan-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/20 transition-colors hover:from-brand-500 hover:to-cyan-400 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900" @click="executeApply">
+            分发绑定下发
+          </button>
+        </div>
       </div>
     </div>
   </div>

@@ -43,10 +43,13 @@
   "dependencies": {
     "@clack/prompts": "catalog:prod",
     "@iconify/vue": "catalog:prod",
+    "@shikijs/monaco": "catalog:prod",
     "cac": "catalog:prod",
     "consola": "catalog:prod",
+    "monaco-editor-core": "catalog:prod",
     "ofetch": "catalog:prod",
     "picocolors": "catalog:prod",
+    "shiki": "catalog:prod",
     "vue": "catalog:prod"
   },
   "devDependencies": {

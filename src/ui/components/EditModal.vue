@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { ref, watch } from 'vue'
+import { defineAsyncComponent, ref, watch } from 'vue'
+
+interface EditableReference {
+  key: string
+  sourcePath?: string
+  targetPath: string
+  title?: string
+  content: string
+  isNew?: boolean
+}
 
 const props = defineProps<{
   show: boolean
@@ -10,14 +19,18 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'save', path: string, content: string, references: Array<{ sourcePath: string, content: string }>): void
-  (e: 'apply', rule: any, agentIds: string[], isGlobal: boolean, content: string, references: Array<{ sourcePath: string, content: string }>): void
+  (e: 'save', path: string, content: string, references: Array<{ sourcePath?: string, targetPath?: string, content: string }>): void
+  (e: 'apply', rule: any, agentIds: string[], isGlobal: boolean, content: string, references: Array<{ sourcePath?: string, targetPath?: string, content: string }>): void
 }>()
+
+const CodeEditor = defineAsyncComponent(() => import('./CodeEditor.vue'))
 
 const content = ref('')
 const activeFile = ref('rule.md')
 const referencesDir = ref('docs')
-const referenceContents = ref<Record<string, string>>({})
+const editableReferences = ref<EditableReference[]>([])
+const newReferencePath = ref('')
+const referenceError = ref('')
 const selectedAgents = ref<string[]>([])
 const applyScopeGlobal = ref(false)
 const saving = ref(false)
@@ -36,9 +49,15 @@ watch(() => props.rule, (newRule) => {
     referencesDir.value = newRule.meta?.referencesDir || 'docs'
     applyScopeGlobal.value = !!newRule.isGlobal
     selectedAgents.value = getDefaultSelectedAgentIds(props.agents)
-    referenceContents.value = Object.fromEntries(
-      (newRule.references || []).map((reference: any) => [reference.sourcePath, reference.rawContent || '']),
-    )
+    referenceError.value = ''
+    newReferencePath.value = ''
+    editableReferences.value = (newRule.references || []).map((reference: any) => ({
+      key: getReferenceKey(reference),
+      sourcePath: reference.sourcePath,
+      targetPath: reference.targetPath,
+      title: reference.title,
+      content: reference.rawContent || reference.content || '',
+    }))
   }
 }, { immediate: true })
 
@@ -50,7 +69,7 @@ watch(() => props.agents, (agents) => {
 function getActiveContent() {
   if (activeFile.value === 'rule.md')
     return content.value
-  return referenceContents.value[activeFile.value] || ''
+  return editableReferences.value.find(reference => reference.key === activeFile.value)?.content || ''
 }
 
 function setActiveContent(value: string) {
@@ -58,10 +77,9 @@ function setActiveContent(value: string) {
     content.value = value
     return
   }
-  referenceContents.value = {
-    ...referenceContents.value,
-    [activeFile.value]: value,
-  }
+  const reference = editableReferences.value.find(item => item.key === activeFile.value)
+  if (reference)
+    reference.content = value
 }
 
 function toggleAgent(id: string) {
@@ -74,13 +92,14 @@ function toggleAgent(id: string) {
 function emitApply() {
   if (!props.rule || selectedAgents.value.length === 0)
     return
-  emit('apply', props.rule, selectedAgents.value, applyScopeGlobal.value, withReferencesDir(content.value, referencesDir.value), getReferencePayload())
+  emit('apply', props.rule, selectedAgents.value, applyScopeGlobal.value, withReferenceFrontmatter(content.value, referencesDir.value), getReferencePayload())
 }
 
-function getReferencePayload(): Array<{ sourcePath: string, content: string }> {
-  return (props.rule.references || []).map((reference: any) => ({
+function getReferencePayload(): Array<{ sourcePath?: string, targetPath?: string, content: string }> {
+  return editableReferences.value.map(reference => ({
     sourcePath: reference.sourcePath,
-    content: referenceContents.value[reference.sourcePath] || '',
+    targetPath: reference.isNew ? reference.targetPath : undefined,
+    content: reference.content,
   }))
 }
 
@@ -91,7 +110,7 @@ function handleSave() {
   emit(
     'save',
     props.rule.path,
-    withReferencesDir(content.value, referencesDir.value),
+    withReferenceFrontmatter(content.value, referencesDir.value),
     getReferencePayload(),
   )
   setTimeout(() => {
@@ -99,11 +118,55 @@ function handleSave() {
   }, 500)
 }
 
-function withReferencesDir(rawContent: string, nextReferencesDir: string): string {
+function getReferenceKey(reference: any): string {
+  return reference.sourcePath || `new:${reference.targetPath}`
+}
+
+function normalizeReferencePath(path: string): string {
+  return path.trim().replace(/\\/g, '/')
+}
+
+function isUnsafeReferencePath(path: string): boolean {
+  const normalized = normalizeReferencePath(path)
+  return !normalized
+    || normalized.startsWith('/')
+    || normalized === '..'
+    || normalized.startsWith('../')
+    || normalized.includes('/../')
+    || normalized.startsWith('~/')
+}
+
+function addReference() {
+  const targetPath = normalizeReferencePath(newReferencePath.value)
+  if (isUnsafeReferencePath(targetPath)) {
+    referenceError.value = '请输入安全的相对路径，例如 docs/my-rule.md'
+    return
+  }
+
+  if (editableReferences.value.some(reference => reference.targetPath === targetPath)) {
+    referenceError.value = '该引用文件已存在'
+    return
+  }
+
+  const reference: EditableReference = {
+    key: `new:${targetPath}`,
+    targetPath,
+    title: targetPath.split('/').pop() || targetPath,
+    content: `# ${targetPath.split('/').pop()?.replace(/\.[^.]+$/u, '') || '新引用'}\n\n`,
+    isNew: true,
+  }
+
+  editableReferences.value = [...editableReferences.value, reference]
+  activeFile.value = reference.key
+  newReferencePath.value = ''
+  referenceError.value = ''
+}
+
+function withReferenceFrontmatter(rawContent: string, nextReferencesDir: string): string {
   const normalizedDir = nextReferencesDir.trim() || 'docs'
   const frontmatterMatch = rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)
   if (!frontmatterMatch) {
-    return `---\nreferencesDir: ${normalizedDir}\nreferences: []\n---\n\n${rawContent.trim()}\n`
+    return `---\nreferencesDir: ${normalizedDir}\n${serializeReferences()}\n---\n\n${rawContent.trim()}\n`
   }
 
   const lines = frontmatterMatch[1].split(/\r?\n/u)
@@ -112,13 +175,77 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
     lines[existingIndex] = `referencesDir: ${normalizedDir}`
   else lines.push(`referencesDir: ${normalizedDir}`)
 
-  return `---\n${lines.join('\n')}\n---\n\n${rawContent.slice(frontmatterMatch[0].length).trim()}\n`
+  const nextLines = upsertNewReferenceEntries(lines)
+
+  return `---\n${nextLines.join('\n')}\n---\n\n${rawContent.slice(frontmatterMatch[0].length).trim()}\n`
+}
+
+function upsertNewReferenceEntries(lines: string[]): string[] {
+  const newReferences = editableReferences.value.filter(reference => reference.isNew)
+  if (newReferences.length === 0)
+    return lines
+
+  const referencesIndex = lines.findIndex(line => line.trim() === 'references:')
+  if (referencesIndex === -1) {
+    const emptyReferencesIndex = lines.findIndex(line => line.trim() === 'references: []')
+    if (emptyReferencesIndex >= 0) {
+      return [
+        ...lines.slice(0, emptyReferencesIndex),
+        ...serializeReferences().split('\n'),
+        ...lines.slice(emptyReferencesIndex + 1),
+      ]
+    }
+    return [...lines, ...serializeReferences().split('\n')]
+  }
+
+  const existingPaths = new Set<string>()
+  for (let i = referencesIndex + 1; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line.startsWith(' ') && !line.startsWith('\t'))
+      break
+    const trimmed = line.trim()
+    if (trimmed.startsWith('- path:'))
+      existingPaths.add(trimmed.slice('- path:'.length).trim().replace(/^["']|["']$/g, ''))
+  }
+
+  const additions = newReferences
+    .filter(reference => !existingPaths.has(reference.targetPath))
+    .flatMap(reference => serializeReference(reference))
+
+  if (additions.length === 0)
+    return lines
+
+  let insertIndex = referencesIndex + 1
+  while (insertIndex < lines.length && (lines[insertIndex].startsWith(' ') || lines[insertIndex].startsWith('\t')))
+    insertIndex++
+
+  return [
+    ...lines.slice(0, insertIndex),
+    ...additions,
+    ...lines.slice(insertIndex),
+  ]
+}
+
+function serializeReferences(): string {
+  if (editableReferences.value.length === 0)
+    return 'references: []'
+  return [
+    'references:',
+    ...editableReferences.value.flatMap(reference => serializeReference(reference)),
+  ].join('\n')
+}
+
+function serializeReference(reference: EditableReference): string[] {
+  const lines = [`  - path: ${reference.targetPath}`]
+  if (reference.title)
+    lines.push(`    title: ${reference.title}`)
+  return lines
 }
 </script>
 
 <template>
   <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop animate-fade-in">
-    <div class="glass-card w-full max-w-5xl rounded-2xl overflow-hidden flex flex-col max-h-[85vh] border-slate-700 shadow-2xl">
+    <div class="glass-card flex h-[92vh] w-full max-w-[min(96vw,1280px)] flex-col overflow-hidden rounded-2xl border-slate-700 shadow-2xl">
       <div class="px-5 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
         <div class="flex items-center space-x-2 truncate">
           <Icon icon="ph:pencil-simple-duotone" class="text-brand-400 text-lg shrink-0" />
@@ -133,24 +260,34 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
           <Icon icon="ph:x-bold" />
         </button>
       </div>
-      <div class="p-4 flex-1 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 overflow-hidden bg-slate-950">
+      <div class="grid flex-1 grid-cols-1 gap-4 overflow-hidden bg-slate-950 p-4 md:grid-cols-[260px_1fr]">
         <aside class="rounded-xl border border-slate-800 bg-slate-900/80 p-2 overflow-y-auto">
           <button class="w-full text-left rounded-lg px-3 py-2 text-xs transition-colors" :class="activeFile === 'rule.md' ? 'bg-brand-500/20 text-brand-200' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'" @click="activeFile = 'rule.md'">
             <span class="block font-semibold">入口文件</span>
             <span class="block truncate font-mono text-xs opacity-70">rule.md</span>
           </button>
-          <div v-if="rule?.references?.length" class="mt-3 border-t border-slate-800 pt-3">
-            <p class="px-3 pb-2 text-xs font-semibold text-cyan-300">
-              引用文件
-            </p>
-            <button v-for="reference in rule.references" :key="reference.sourcePath" class="mb-1 w-full text-left rounded-lg px-3 py-2 text-xs transition-colors" :class="activeFile === reference.sourcePath ? 'bg-cyan-500/20 text-cyan-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'" @click="activeFile = reference.sourcePath">
+          <div class="mt-3 border-t border-slate-800 pt-3">
+            <div class="mb-2 flex items-center justify-between gap-2 px-3">
+              <p class="text-xs font-semibold text-cyan-300">
+                引用文件
+              </p>
+              <span class="font-mono text-[10px] text-slate-500">{{ editableReferences.length }}</span>
+            </div>
+            <button v-for="reference in editableReferences" :key="reference.key" class="mb-1 w-full text-left rounded-lg px-3 py-2 text-xs transition-colors" :class="activeFile === reference.key ? 'bg-cyan-500/20 text-cyan-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'" @click="activeFile = reference.key">
               <span class="block truncate">{{ reference.title || reference.targetPath }}</span>
-              <span class="block truncate font-mono text-xs opacity-70">{{ reference.targetPath }}</span>
+              <span class="block truncate font-mono text-xs opacity-70">{{ reference.isNew ? '新建 · ' : '' }}{{ reference.targetPath }}</span>
             </button>
+            <div class="mt-3 space-y-2 border-t border-slate-800 px-3 pt-3">
+              <input v-model="newReferencePath" name="new-reference-path" autocomplete="off" spellcheck="false" class="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 font-mono text-xs text-cyan-100 placeholder:text-slate-600 focus-visible:border-cyan-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500" placeholder="docs/new-rule.md" @keydown.enter.prevent="addReference">
+              <button class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2 py-1.5 text-xs font-semibold text-cyan-300 transition-colors hover:border-cyan-500/40 hover:bg-cyan-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500" @click="addReference">
+                <Icon icon="ph:plus-circle-duotone" class="text-sm" />
+                新建引用
+              </button>
+              <p v-if="referenceError" class="text-xs text-rose-300">
+                {{ referenceError }}
+              </p>
+            </div>
           </div>
-          <p v-else class="mt-3 border-t border-slate-800 px-3 pt-3 text-xs text-slate-500">
-            当前规则未声明引用文件。
-          </p>
         </aside>
         <section class="flex min-h-0 flex-col overflow-hidden">
           <div class="mb-2 flex items-center justify-between gap-3">
@@ -165,7 +302,7 @@ function withReferencesDir(rawContent: string, nextReferencesDir: string): strin
             <span class="shrink-0">引用目录</span>
             <input v-model="referencesDir" name="references-dir" autocomplete="off" spellcheck="false" class="min-w-0 flex-1 bg-transparent font-mono text-cyan-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded" placeholder="docs">
           </label>
-          <textarea :value="getActiveContent()" name="rule-content" autocomplete="off" spellcheck="false" aria-label="编辑源码" class="w-full flex-1 resize-none rounded-xl border border-slate-800 bg-slate-900/90 p-3 text-xs leading-relaxed text-slate-200 transition-colors focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-500" @input="setActiveContent(($event.target as HTMLTextAreaElement).value)" />
+          <CodeEditor :model-value="getActiveContent()" :path="activeFile" language="markdown" @update:model-value="setActiveContent" />
         </section>
       </div>
       <div class="border-t border-slate-800 bg-slate-900/50 p-5">

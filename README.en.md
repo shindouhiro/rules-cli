@@ -31,7 +31,8 @@
 - 📦 **Multi-assistant support**: supports both directory-based rules and single-file injected rules.
 - 🗺️ **Map-style rule entries**: single-file assistants receive a compact entry map while detailed content is synced into `docs/` or another reference directory.
 - 🔗 **Shared by design**: directory-based assistants use symlinks by default, so one rule can be reused across multiple targets.
-- 🔍 **Remote search and download**: supports GitHub rule sources and [cursor.directory](https://cursor.directory/) search/download.
+- 🔍 **Remote search and download**: supports GitHub `owner/repo`, arbitrary Git URL rule sources, and [cursor.directory](https://cursor.directory/) search/download.
+- ☁️ **Remote repository publishing**: publish local store rules to GitHub, GitLab, Gitee, or self-hosted Git repositories while preserving unrelated remote files.
 - 🧭 **Clear scopes**: supports both project-level and global store / applied rules.
 - 🧾 **Manual rules are visible**: `rules list` also shows existing handwritten single-file rules and marks them as manual.
 - 🗑️ **Interactive removal**: remove applied rules or store rules through an interactive selector; empty reference directories are cleaned automatically.
@@ -86,7 +87,7 @@ Search the local store:
 rules search vue
 ```
 
-Search configured GitHub remote sources:
+Search configured remote sources:
 
 ```bash
 rules search react --remote
@@ -100,7 +101,7 @@ rules search angular --cursor
 
 ### 5. Download Remote Rules
 
-Download from GitHub sources configured in `.rulesrc`:
+Download from sources configured in `.rulesrc`:
 
 ```bash
 rules install react
@@ -114,9 +115,31 @@ rules install angular-cursor-rules --cursor
 rules i nextjs-react-typescript-cursor-rules --source cursor.directory
 ```
 
-You can also omit `--cursor`. If configured GitHub sources cannot find the rule, the CLI will automatically try downloading a matching rule from `cursor.directory`.
+You can also omit `--cursor`. If configured sources cannot find the rule, the CLI will automatically try downloading a matching rule from `cursor.directory`.
 
-### 6. List Rules
+Download from any Git repository:
+
+```bash
+rules install vue --source git@github.com:owner/rules.git
+rules install react --source https://gitlab.com/owner/rules.git --project
+```
+
+### 6. Publish Local Rules to a Remote Repository
+
+Publish all rules from the current scoped store:
+
+```bash
+rules publish --repo git@github.com:owner/rules.git --branch main --path rules
+rules publish --source team-rules --message "chore: sync rules"
+```
+
+Preview the publish plan without committing or pushing:
+
+```bash
+rules publish --repo git@github.com:owner/rules.git --dry-run
+```
+
+### 7. List Rules
 
 ```bash
 rules list
@@ -130,7 +153,7 @@ rules ls --store
 📄 GEMINI.md — Reply, reasoning, and task lists must use Chinese (manual, not managed by rules-cli)
 ```
 
-### 7. Remove Rules
+### 8. Remove Rules
 
 ```bash
 rules remove use-chinese
@@ -139,7 +162,7 @@ rules rm -i
 rules rm -i --store --global
 ```
 
-### 8. Immersive Web Dashboard
+### 9. Immersive Web Dashboard
 
 Launch a fully componentized modern Web UI dashboard with a single command, supporting automatic open in your default browser:
 
@@ -152,6 +175,9 @@ rules ui --port 8080
 - **Bi-directional Scope Sync**: multi-select and distribute rules instantly to project or global targets.
 - **High-Fidelity Real-time Editor**: live editing drawer for `rule.md` source and frontmatter with direct disk saving.
 - **Store Multi-select**: select all filtered rules, clear selection, preview selected rules, and apply batches to one or more assistants with exact project/global rule path matching.
+- **Remote Repository Management**: save Git repository URL, branch, and target path; automatically load remote rules when entering the page or switching repositories; repeat loads use a 24-hour local cache.
+- **Remote Publish and Delete**: upload local rules to a remote Git repository, read remote rules, download them locally, and delete remote rules from the UI; destructive operations require a second confirmation click.
+- **Icon-based Controls**: primary actions use icon-only buttons with hover tooltips and `aria-label` text.
 - **Mapping Tracker with Batch Removal**: visualizes active symlinks/injections, supports multi-select unbinding, and cleans both assistant entry files and referenced docs.
 - **Component Confirmation Dialogs**: deleting store rules, single unbind, and batch unbind use the built-in confirmation dialog instead of the browser native confirm API.
 
@@ -160,8 +186,9 @@ rules ui --port 8080
 | Command | Alias | Description | Common options |
 | :--- | :--- | :--- | :--- |
 | `ui` | - | Launch the immersive Web UI management dashboard service | `--port <number>`: specify local listening port |
-| `search [keyword]` | `s` | Search local rules, GitHub remote sources, or cursor.directory rules | `-r, --remote`: search remote sources<br>`-c, --cursor`: search cursor.directory |
-| `install [name]` | `i` | Download a remote rule into the local store and enter the apply flow | `-s, --source <repo>`: GitHub repo or cursor.directory<br>`-c, --cursor`: download from cursor.directory<br>`-g, --global`: download to global store<br>`-p, --project`: download to project store<br>`-f, --force`: overwrite existing rule |
+| `search [keyword]` | `s` | Search local rules, Git remote sources, or cursor.directory rules | `-r, --remote`: search remote sources<br>`-c, --cursor`: search cursor.directory |
+| `install [name]` | `i` | Download a remote rule into the local store and enter the apply flow | `-s, --source <repo-or-url>`: GitHub `owner/repo`, Git URL, or cursor.directory<br>`-c, --cursor`: download from cursor.directory<br>`-g, --global`: download to global store<br>`-p, --project`: download to project store<br>`-f, --force`: overwrite existing rule |
+| `publish` | - | Publish local store rules to a remote Git repository | `--repo <git-url>`: remote repository<br>`-s, --source <source>`: use a `.rulesrc` source name, key, or URL<br>`-b, --branch <branch>`: target branch<br>`--path <dir>`: target directory in the repository<br>`-m, --message <message>`: commit message<br>`--dry-run`: preview only |
 | `apply [name]` | `a` | Apply store rules to AI assistants | `-a, --agent <agents>`: target agents<br>`-g, --global`: apply to global targets<br>`-p, --project`: apply to project targets<br>`-f, --force`: force overwrite |
 | `list` | `ls` | List applied rules or store rules | `-s, --store`: list store rules<br>`-g, --global`: global only<br>`-p, --project`: project only |
 | `remove [name]` | `rm`, `delete` | Remove applied rules or delete store rules | `-a, --agent <agents>`: target agents<br>`-s, --store`: delete from store<br>`-i, --interactive`: choose interactively<br>`-g, --global`: global scope<br>`-p, --project`: project scope |
@@ -193,7 +220,14 @@ Create a config file with `rules init`.
   "scope": "global",
   "sources": [
     {
+      "name": "github-rules",
       "repo": "owner/rules-repo",
+      "subPath": "rules"
+    },
+    {
+      "type": "git",
+      "name": "team-rules",
+      "url": "git@github.com:owner/rules.git",
       "subPath": "rules"
     }
   ]
@@ -207,7 +241,7 @@ Create a config file with `rules init`.
 | `defaultAgents` | AI assistants to apply rules to by default |
 | `scope` | Default scope, either `project` or `global` |
 | `storePath` | Optional custom store path |
-| `sources` | GitHub remote rule source list |
+| `sources` | Remote rule source list; compatible with GitHub `repo` config and supports `type: "git"` + `url` |
 
 ## 📌 Scope Rules
 
